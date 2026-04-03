@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-const STORAGE_KEY = "joey-bucket-board-v8";
+const STORAGE_KEY = "joey-bucket-board-v10";
 
 const PRESETS = [
   { label: "Baseline", amount: 1300 },
@@ -10,15 +10,17 @@ const PRESETS = [
 ];
 
 const TONES = {
-  sky: "border-sky-900/70 bg-sky-950/25",
-  rose: "border-rose-900/70 bg-rose-950/25",
-  amber: "border-amber-900/70 bg-amber-950/25",
-  emerald: "border-emerald-900/70 bg-emerald-950/25",
-  zinc: "border-zinc-800 bg-zinc-950/60",
-  violet: "border-violet-900/70 bg-violet-950/25",
-  fuchsia: "border-fuchsia-900/70 bg-fuchsia-950/25",
-  cyan: "border-cyan-900/70 bg-cyan-950/25",
+  sky: "border-sky-900/70 bg-sky-950/30",
+  rose: "border-rose-900/70 bg-rose-950/30",
+  amber: "border-amber-900/70 bg-amber-950/30",
+  emerald: "border-emerald-900/70 bg-emerald-950/30",
+  zinc: "border-zinc-800 bg-zinc-950/70",
+  violet: "border-violet-900/70 bg-violet-950/30",
+  fuchsia: "border-fuchsia-900/70 bg-fuchsia-950/30",
+  cyan: "border-cyan-900/70 bg-cyan-950/30",
 };
+
+type ViewMode = "today" | "board" | "concert";
 
 function makeId(prefix = "id") {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -57,7 +59,7 @@ type ShowPlan = {
 type AppState = {
   paycheck: number;
   unassigned: number;
-  view: "board" | "concert";
+  view: ViewMode;
   buckets: Bucket[];
   drafts: Record<string, string>;
   shows: ShowPlan[];
@@ -191,7 +193,7 @@ const INITIAL_BUCKETS: Bucket[] = [
 const INITIAL_STATE: AppState = {
   paycheck: 1300,
   unassigned: 0,
-  view: "board",
+  view: "today",
   buckets: INITIAL_BUCKETS,
   drafts: {},
   shows: [makeShow({ name: "Example Show", notes: "Delete or rename me." })],
@@ -239,25 +241,236 @@ function showTotal(show: ShowPlan): number {
   return parseMoney(show.ticket) + parseMoney(show.travel) + parseMoney(show.misc);
 }
 
+function cls(...parts: Array<string | false | null | undefined>) {
+  return parts.filter(Boolean).join(" ");
+}
+
+function iconForBucket(bucketId: string) {
+  const map: Record<string, string> = {
+    lights: "◌",
+    repair: "▲",
+    file: "□",
+    chaos: "✦",
+    life: "•",
+    joy: "♡",
+    show: "◆",
+    future: "◎",
+  };
+  return map[bucketId] || "•";
+}
+
+function ActionButton({
+  children,
+  onClick,
+  variant = "secondary",
+  disabled = false,
+  className = "",
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  variant?: "primary" | "secondary" | "ghost";
+  disabled?: boolean;
+  className?: string;
+}) {
+  const variants = {
+    primary: "border-zinc-100 bg-zinc-100 text-zinc-900 hover:bg-white",
+    secondary: "border-zinc-700 bg-zinc-950/80 text-zinc-100 hover:border-zinc-500 hover:bg-zinc-900",
+    ghost: "border-zinc-800 bg-transparent text-zinc-300 hover:border-zinc-600 hover:bg-zinc-950/60",
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={cls(
+        "rounded-2xl border px-4 py-2.5 text-sm font-medium transition duration-150 disabled:cursor-not-allowed disabled:opacity-40",
+        variants[variant],
+        className
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
 function Stat({ title, value, sub, tone = "zinc" }: { title: string; value: string; sub?: string; tone?: keyof typeof TONES }) {
   return (
-    <div className={`rounded-2xl border p-4 ${TONES[tone]}`}>
-      <div className="text-xs uppercase tracking-[0.16em] text-zinc-400">{title}</div>
-      <div className="mt-2 text-2xl font-semibold text-zinc-50">{value}</div>
-      {sub ? <div className="mt-2 text-sm text-zinc-400">{sub}</div> : null}
+    <div className={cls("rounded-[28px] border p-4 shadow-[0_0_0_1px_rgba(255,255,255,0.02)] backdrop-blur-sm", TONES[tone])}>
+      <div className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">{title}</div>
+      <div className="mt-2 text-2xl font-semibold tracking-tight text-zinc-50">{value}</div>
+      {sub ? <div className="mt-2 text-sm leading-5 text-zinc-400">{sub}</div> : null}
     </div>
   );
 }
 
-function Pill({ children }: { children: React.ReactNode }) {
-  return <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-[11px] uppercase tracking-[0.14em] text-zinc-300">{children}</span>;
+function Pill({ children, active = false }: { children: React.ReactNode; active?: boolean }) {
+  return (
+    <span
+      className={cls(
+        "rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.16em]",
+        active ? "border-zinc-100 bg-zinc-100 text-zinc-900" : "border-zinc-700 bg-zinc-950/80 text-zinc-300"
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+function SectionShell({ title, sub, right, children }: { title: string; sub?: string; right?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <section className="rounded-[30px] border border-zinc-800/90 bg-zinc-900/60 p-5 shadow-2xl shadow-black/20 backdrop-blur-sm md:p-6">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight text-zinc-50">{title}</h2>
+          {sub ? <p className="mt-1 text-sm leading-6 text-zinc-400">{sub}</p> : null}
+        </div>
+        {right ? <div className="flex flex-wrap gap-2">{right}</div> : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function ViewTabs({ value, onChange }: { value: ViewMode; onChange: (view: ViewMode) => void }) {
+  const tabs: Array<{ value: ViewMode; label: string }> = [
+    { value: "today", label: "Today" },
+    { value: "board", label: "Board" },
+    { value: "concert", label: "Concert" },
+  ];
+
+  return (
+    <div className="inline-flex rounded-full border border-zinc-800 bg-zinc-950/70 p-1 shadow-inner shadow-black/25">
+      {tabs.map((tab) => (
+        <button
+          key={tab.value}
+          onClick={() => onChange(tab.value)}
+          className={cls(
+            "rounded-full px-4 py-2 text-xs uppercase tracking-[0.16em] transition",
+            value === tab.value ? "bg-zinc-100 text-zinc-900" : "text-zinc-400 hover:text-zinc-200"
+          )}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 function MoneyInput({ value, onChange }: { value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void }) {
   return (
-    <div className="flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-300">
-      <span>$</span>
-      <input className="w-full bg-transparent text-right text-zinc-100 outline-none" value={value} onChange={onChange} inputMode="decimal" />
+    <div className="flex items-center gap-2 rounded-2xl border border-zinc-700 bg-zinc-950/90 px-3 py-2.5 text-sm text-zinc-300 shadow-inner shadow-black/20">
+      <span className="text-zinc-500">$</span>
+      <input className="w-full bg-transparent text-right text-zinc-100 outline-none placeholder:text-zinc-600" value={value} onChange={onChange} inputMode="decimal" />
+    </div>
+  );
+}
+
+function BucketMiniCard({ bucket }: { bucket: Bucket }) {
+  const target = targetOf(bucket);
+  const pct = progress(bucket.saved, target);
+  return (
+    <div className={cls("rounded-[24px] border p-4", TONES[bucket.tone])}>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/70 text-sm text-zinc-100">{iconForBucket(bucket.id)}</div>
+          <div>
+            <div className="text-sm font-semibold text-zinc-50">{bucket.name}</div>
+            <div className="text-xs text-zinc-400">{labelOf(bucket)}</div>
+          </div>
+        </div>
+        {bucket.saved >= target && target > 0 ? <Pill active>Ready</Pill> : null}
+      </div>
+      <div className="mb-2 flex items-center justify-between text-sm text-zinc-300">
+        <span>{formatMoney(bucket.saved)}</span>
+        <span>{formatMoney(target)}</span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-zinc-950 ring-1 ring-white/5">
+        <div className="h-full rounded-full bg-zinc-100 transition-all duration-300" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function TodayPriorityCard({
+  title,
+  amount,
+  sub,
+  tone,
+}: {
+  title: string;
+  amount: string;
+  sub: string;
+  tone: keyof typeof TONES;
+}) {
+  return <Stat title={title} value={amount} sub={sub} tone={tone} />;
+}
+
+function TodayView({
+  unassigned,
+  totalNeeded,
+  nextCore,
+  concertPool,
+  nextShow,
+  buckets,
+}: {
+  unassigned: number;
+  totalNeeded: number;
+  nextCore?: Bucket;
+  concertPool: number;
+  nextShow?: ShowPlan;
+  buckets: Bucket[];
+}) {
+  const essentials = buckets.filter((bucket) => ["lights", "repair", "file", "chaos"].includes(bucket.id));
+  const life = buckets.filter((bucket) => ["life", "joy", "show", "future"].includes(bucket.id));
+
+  return (
+    <div className="mb-6 space-y-4">
+      <SectionShell title="Today view" sub="The short version of what matters right now.">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <TodayPriorityCard
+            title="Unassigned now"
+            amount={formatMoney(unassigned)}
+            sub="Money waiting for a job."
+            tone="cyan"
+          />
+          <TodayPriorityCard
+            title="Next priority"
+            amount={nextCore ? formatMoney(Math.max(0, targetOf(nextCore) - nextCore.saved)) : formatMoney(0)}
+            sub={nextCore ? `${nextCore.name} is next.` : "No active core priority."}
+            tone="rose"
+          />
+          <TodayPriorityCard
+            title="Concert-ready pool"
+            amount={formatMoney(concertPool)}
+            sub={nextShow ? `${nextShow.name || "Next show"} needs ${formatMoney(showNeeded(nextShow))}.` : "No active show card right now."}
+            tone="fuchsia"
+          />
+          <TodayPriorityCard
+            title="Total still needed"
+            amount={formatMoney(totalNeeded)}
+            sub="Across all active bucket phases."
+            tone="amber"
+          />
+        </div>
+      </SectionShell>
+
+      <div className="grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
+        <SectionShell title="Core priorities" sub="The buckets most likely to keep future-you from cussing current-you out.">
+          <div className="grid gap-3 md:grid-cols-2">
+            {essentials.map((bucket) => (
+              <BucketMiniCard key={bucket.id} bucket={bucket} />
+            ))}
+          </div>
+        </SectionShell>
+
+        <SectionShell title="Life + concerts" sub="The softer side of the system, still with boundaries.">
+          <div className="grid gap-3 md:grid-cols-2">
+            {life.map((bucket) => (
+              <BucketMiniCard key={bucket.id} bucket={bucket} />
+            ))}
+          </div>
+        </SectionShell>
+      </div>
     </div>
   );
 }
@@ -287,69 +500,72 @@ function BucketCard(props: {
   const canAdvance = bucket.phaseIndex < bucket.phases.length - 1;
 
   return (
-    <div className={`rounded-3xl border p-5 ${TONES[bucket.tone]}`}>
+    <div className={cls("rounded-[30px] border p-5 shadow-2xl shadow-black/10 backdrop-blur-sm", TONES[bucket.tone])}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
           <div className="mb-3 flex flex-wrap gap-2">
             <Pill>{labelOf(bucket)}</Pill>
-            {funded ? <Pill>Funded</Pill> : null}
+            {funded ? <Pill active>Funded</Pill> : null}
             {bucket.locked ? <Pill>Locked</Pill> : null}
             {bucket.archived ? <Pill>Archived</Pill> : null}
           </div>
-          <input value={bucket.name} onChange={(e) => onRename(e.target.value)} className="w-full bg-transparent text-lg font-semibold text-zinc-50 outline-none" />
-          <p className="mt-1 text-sm leading-6 text-zinc-400">{bucket.note}</p>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2 lg:w-[260px] lg:grid-cols-1">
-          <div>
-            <div className="mb-1 text-xs uppercase tracking-[0.14em] text-zinc-500">Saved</div>
-            <div className="text-2xl font-semibold text-zinc-50">{formatMoney(bucket.saved)}</div>
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/70 text-sm text-zinc-100">{iconForBucket(bucket.id)}</div>
+            <input value={bucket.name} onChange={(e) => onRename(e.target.value)} className="w-full bg-transparent text-lg font-semibold tracking-tight text-zinc-50 outline-none" />
           </div>
-          <div>
-            <div className="mb-1 text-xs uppercase tracking-[0.14em] text-zinc-500">Target</div>
-            <div className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-right text-sm text-zinc-100">{formatMoney(target)}</div>
+          <p className="mt-2 text-sm leading-6 text-zinc-400">{bucket.note}</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:w-[260px] lg:grid-cols-1">
+          <div className="rounded-2xl border border-zinc-800/90 bg-zinc-950/70 p-3">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Saved</div>
+            <div className="mt-1 text-2xl font-semibold tracking-tight text-zinc-50">{formatMoney(bucket.saved)}</div>
+          </div>
+          <div className="rounded-2xl border border-zinc-800/90 bg-zinc-950/70 p-3">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Target</div>
+            <div className="mt-1 text-2xl font-semibold tracking-tight text-zinc-50">{formatMoney(target)}</div>
           </div>
         </div>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-5">
         <div className="mb-2 flex items-center justify-between text-sm text-zinc-300">
           <span>{pct.toFixed(0)}% built</span>
           <span>{formatMoney(remaining)} to go</span>
         </div>
-        <div className="h-3 overflow-hidden rounded-full bg-zinc-900">
-          <div className="h-full rounded-full bg-zinc-100 transition-all" style={{ width: `${pct}%` }} />
+        <div className="h-3 overflow-hidden rounded-full bg-zinc-950/90 ring-1 ring-white/5">
+          <div className="h-full rounded-full bg-zinc-100 transition-all duration-300" style={{ width: `${pct}%` }} />
         </div>
       </div>
 
       <div className="mt-5 grid gap-3 xl:grid-cols-[1fr_auto_auto_auto_auto]">
         <MoneyInput value={draftValue} onChange={onDraftChange} />
-        <button onClick={onAssign} className="rounded-2xl border border-zinc-700 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900">Assign</button>
-        <button onClick={onPullBack} className="rounded-2xl border border-zinc-700 bg-zinc-950 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500">Pull back</button>
-        <button onClick={onToggleLock} className="rounded-2xl border border-zinc-700 bg-zinc-950 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500">{bucket.locked ? "Unlock" : "Lock"}</button>
+        <ActionButton onClick={onAssign} variant="primary">Assign</ActionButton>
+        <ActionButton onClick={onPullBack}>Pull back</ActionButton>
+        <ActionButton onClick={onToggleLock}>{bucket.locked ? "Unlock" : "Lock"}</ActionButton>
         <div className="grid grid-cols-2 gap-2">
-          <button onClick={onMoveUp} disabled={disableMoveUp} className="rounded-2xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 disabled:opacity-40">Up</button>
-          <button onClick={onMoveDown} disabled={disableMoveDown} className="rounded-2xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 disabled:opacity-40">Down</button>
+          <ActionButton onClick={onMoveUp} disabled={disableMoveUp} className="px-3">Up</ActionButton>
+          <ActionButton onClick={onMoveDown} disabled={disableMoveDown} className="px-3">Down</ActionButton>
         </div>
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        <button onClick={onAdvancePhase} disabled={!funded || !canAdvance} className="rounded-2xl border border-zinc-700 bg-zinc-950 px-4 py-2 text-sm text-zinc-200 disabled:opacity-40">Advance phase</button>
-        <button onClick={onArchiveToggle} className="rounded-2xl border border-zinc-700 bg-zinc-950 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500">{bucket.archived ? "Restore" : "Archive"}</button>
+        <ActionButton onClick={onAdvancePhase} disabled={!funded || !canAdvance}>Advance phase</ActionButton>
+        <ActionButton onClick={onArchiveToggle}>{bucket.archived ? "Restore" : "Archive"}</ActionButton>
       </div>
 
-      <div className="mt-5 rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
+      <div className="mt-5 rounded-[24px] border border-zinc-800 bg-zinc-950/60 p-4 shadow-inner shadow-black/20">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
             <div className="text-sm font-medium text-zinc-100">Phases</div>
             <div className="mt-1 text-xs text-zinc-400">Saved dollars stay. Targets evolve.</div>
           </div>
-          <button onClick={onAddPhase} className="rounded-2xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-200 hover:border-zinc-500">Add phase</button>
+          <ActionButton onClick={onAddPhase} className="px-3 py-2 text-xs">Add phase</ActionButton>
         </div>
         <div className="space-y-2">
           {bucket.phases.map((phase, index) => {
             const active = index === bucket.phaseIndex;
             return (
-              <div key={phase.id} className={`grid gap-2 rounded-2xl border p-3 md:grid-cols-[1fr_180px] ${active ? "border-zinc-100 bg-zinc-900/90" : "border-zinc-800 bg-zinc-950/70"}`}>
+              <div key={phase.id} className={cls("grid gap-2 rounded-2xl border p-3 md:grid-cols-[1fr_180px]", active ? "border-zinc-100 bg-zinc-900/90" : "border-zinc-800 bg-zinc-950/70")}>
                 <input value={phase.label} onChange={(e) => onUpdatePhase(phase.id, { label: e.target.value })} className="bg-transparent text-sm text-zinc-100 outline-none" />
                 <MoneyInput value={String(phase.target)} onChange={(e) => onUpdatePhase(phase.id, { target: parseMoney(e.target.value) })} />
               </div>
@@ -376,52 +592,52 @@ function ShowCard(props: {
   const pct = total > 0 ? Math.min(100, (concertPool / total) * 100) : 0;
 
   return (
-    <div className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5">
+    <div className="rounded-[30px] border border-zinc-800 bg-zinc-900/65 p-5 shadow-2xl shadow-black/15 backdrop-blur-sm">
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Pill>{show.active ? "Active" : "Inactive"}</Pill>
         <Pill>{show.bought ? "Ticket bought" : "Ticket needed"}</Pill>
-        <Pill>{ready ? "Can happen now" : "Needs more money"}</Pill>
+        <Pill active={ready}>{ready ? "Can happen now" : "Needs more money"}</Pill>
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
         <label className="block rounded-2xl border border-zinc-800 bg-zinc-950/60 p-3">
-          <div className="mb-1 text-xs uppercase tracking-[0.14em] text-zinc-500">Show name</div>
+          <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Show name</div>
           <input value={show.name} onChange={(e) => onUpdate({ name: e.target.value })} className="w-full bg-transparent text-zinc-100 outline-none" placeholder="Currents / ERRA / etc" />
         </label>
         <label className="block rounded-2xl border border-zinc-800 bg-zinc-950/60 p-3">
-          <div className="mb-1 text-xs uppercase tracking-[0.14em] text-zinc-500">Venue</div>
+          <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Venue</div>
           <input value={show.venue} onChange={(e) => onUpdate({ venue: e.target.value })} className="w-full bg-transparent text-zinc-100 outline-none" placeholder="El Corazon / etc" />
         </label>
         <label className="block rounded-2xl border border-zinc-800 bg-zinc-950/60 p-3">
-          <div className="mb-1 text-xs uppercase tracking-[0.14em] text-zinc-500">Date</div>
+          <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Date</div>
           <input type="date" value={show.date} onChange={(e) => onUpdate({ date: e.target.value })} className="w-full bg-transparent text-zinc-100 outline-none" />
         </label>
         <label className="block rounded-2xl border border-zinc-800 bg-zinc-950/60 p-3">
-          <div className="mb-1 text-xs uppercase tracking-[0.14em] text-zinc-500">Notes</div>
+          <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Notes</div>
           <input value={show.notes} onChange={(e) => onUpdate({ notes: e.target.value })} className="w-full bg-transparent text-zinc-100 outline-none" placeholder="Two tickets? parking? no merch?" />
         </label>
       </div>
 
       <div className="mt-4 grid gap-3 md:grid-cols-3">
         <div>
-          <div className="mb-1 text-xs uppercase tracking-[0.14em] text-zinc-500">Ticket</div>
+          <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Ticket</div>
           <MoneyInput value={String(show.ticket)} onChange={(e) => onUpdate({ ticket: parseMoney(e.target.value) })} />
         </div>
         <div>
-          <div className="mb-1 text-xs uppercase tracking-[0.14em] text-zinc-500">Travel</div>
+          <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Travel</div>
           <MoneyInput value={String(show.travel)} onChange={(e) => onUpdate({ travel: parseMoney(e.target.value) })} />
         </div>
         <div>
-          <div className="mb-1 text-xs uppercase tracking-[0.14em] text-zinc-500">Misc</div>
+          <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Misc</div>
           <MoneyInput value={String(show.misc)} onChange={(e) => onUpdate({ misc: parseMoney(e.target.value) })} />
         </div>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-3">
-        <button onClick={() => onUpdate({ bought: !show.bought })} className="rounded-2xl border border-zinc-700 bg-zinc-950 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500">{show.bought ? "Mark ticket needed" : "Mark ticket bought"}</button>
-        <button onClick={onToggleActive} className="rounded-2xl border border-zinc-700 bg-zinc-950 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500">{show.active ? "Set inactive" : "Set active"}</button>
-        <button onClick={onDuplicate} className="rounded-2xl border border-zinc-700 bg-zinc-950 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500">Duplicate</button>
-        <button onClick={onDelete} className="rounded-2xl border border-zinc-700 bg-zinc-950 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500">Delete</button>
+        <ActionButton onClick={() => onUpdate({ bought: !show.bought })}>{show.bought ? "Mark ticket needed" : "Mark ticket bought"}</ActionButton>
+        <ActionButton onClick={onToggleActive}>{show.active ? "Set inactive" : "Set active"}</ActionButton>
+        <ActionButton onClick={onDuplicate}>Duplicate</ActionButton>
+        <ActionButton onClick={onDelete} variant="ghost">Delete</ActionButton>
       </div>
 
       <div className="mt-5 grid gap-4 md:grid-cols-3">
@@ -435,8 +651,8 @@ function ShowCard(props: {
           <span>Pool vs full show target</span>
           <span>{pct.toFixed(0)}%</span>
         </div>
-        <div className="h-3 overflow-hidden rounded-full bg-zinc-950">
-          <div className="h-full rounded-full bg-zinc-100 transition-all" style={{ width: `${pct}%` }} />
+        <div className="h-3 overflow-hidden rounded-full bg-zinc-950 ring-1 ring-white/5">
+          <div className="h-full rounded-full bg-zinc-100 transition-all duration-300" style={{ width: `${pct}%` }} />
         </div>
       </div>
     </div>
@@ -463,6 +679,7 @@ export default function BucketSystemApp() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, lastSavedAt: ts }));
   }, [state]);
 
+  const activeBuckets = useMemo(() => state.buckets.filter((bucket) => !bucket.archived), [state.buckets]);
   const visibleBuckets = useMemo(
     () => state.buckets.filter((bucket) => !bucket.archived && (state.view === "concert" ? ["joy", "show"].includes(bucket.id) : true)),
     [state.buckets, state.view]
@@ -471,6 +688,8 @@ export default function BucketSystemApp() {
   const totalSaved = useMemo(() => state.buckets.reduce((sum, bucket) => sum + bucket.saved, 0), [state.buckets]);
   const totalTargets = useMemo(() => state.buckets.reduce((sum, bucket) => sum + targetOf(bucket), 0), [state.buckets]);
   const totalNeeded = useMemo(() => state.buckets.reduce((sum, bucket) => sum + Math.max(0, targetOf(bucket) - bucket.saved), 0), [state.buckets]);
+  const fundedCount = useMemo(() => state.buckets.filter((bucket) => bucket.saved >= targetOf(bucket) && targetOf(bucket) > 0).length, [state.buckets]);
+  const nextCore = useMemo(() => activeBuckets.find((bucket) => ["lights", "repair", "file", "chaos"].includes(bucket.id) && bucket.saved < targetOf(bucket)), [activeBuckets]);
   const showFund = state.buckets.find((bucket) => bucket.id === "show")?.saved || 0;
   const smallJoy = state.buckets.find((bucket) => bucket.id === "joy")?.saved || 0;
   const concertPool = showFund + smallJoy + state.unassigned;
@@ -587,76 +806,135 @@ export default function BucketSystemApp() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <div className="mx-auto max-w-7xl p-4 md:p-8">
+    <div className="min-h-screen overflow-x-hidden bg-zinc-950 pb-28 text-zinc-100 md:pb-8">
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute inset-x-0 top-0 h-[520px] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_48%)]" />
+        <div className="absolute left-[-10%] top-20 h-72 w-72 rounded-full bg-fuchsia-500/8 blur-3xl" />
+        <div className="absolute right-[-10%] top-32 h-72 w-72 rounded-full bg-cyan-500/8 blur-3xl" />
+      </div>
+
+      <div className="relative mx-auto max-w-7xl p-4 md:p-8">
         <input ref={fileRef} type="file" accept="application/json" className="hidden" onChange={importBackup} />
 
-        <div className="mb-8 grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-          <div className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-6">
-            <div className="text-xs uppercase tracking-[0.22em] text-zinc-500">Bucket system</div>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-zinc-50 md:text-4xl">Let the dollars live somewhere.</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">Clean working version. Core buckets, phases, history, import/export, and a real show planner.</p>
+        <div className="mb-8 grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+          <div className="rounded-[34px] border border-zinc-800 bg-zinc-900/70 p-6 shadow-2xl shadow-black/25 backdrop-blur-sm md:p-8">
+            <div className="mb-3 flex flex-wrap gap-2">
+              <Pill>Bucket system</Pill>
+              <Pill active={state.view === "today"}>Today</Pill>
+              <Pill active={state.view === "board"}>Board</Pill>
+              <Pill active={state.view === "concert"}>Concert</Pill>
+            </div>
+            <h1 className="max-w-3xl text-3xl font-semibold tracking-tight text-zinc-50 md:text-5xl">Let the dollars live somewhere.</h1>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-400 md:text-base">
+              A calmer shell for the same working logic: buckets, phases, local persistence, concert planning, and a dashboard that feels more like a tool than a prototype.
+            </p>
             <div className="mt-6 flex flex-wrap gap-2 text-xs text-zinc-300">
-              <span className="rounded-full border border-zinc-700 bg-zinc-950 px-3 py-1.5">Runs in one file</span>
-              <span className="rounded-full border border-zinc-700 bg-zinc-950 px-3 py-1.5">Import / export</span>
-              <span className="rounded-full border border-zinc-700 bg-zinc-950 px-3 py-1.5">Show planner</span>
-              <span className="rounded-full border border-zinc-700 bg-zinc-950 px-3 py-1.5">Mobile friendly</span>
+              <Pill>Local save</Pill>
+              <Pill>Import / export</Pill>
+              <Pill>Phases</Pill>
+              <Pill>Show planner</Pill>
+              <Pill>Mobile friendly</Pill>
+            </div>
+            <div className="mt-6 hidden md:block">
+              <ViewTabs value={state.view} onChange={(view) => setState((prev) => ({ ...prev, view }))} />
             </div>
           </div>
+
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
             <Stat title="Unassigned cash" value={formatMoney(state.unassigned)} sub="Money not yet told what job it has." tone="cyan" />
-            <Stat title="Total saved in buckets" value={formatMoney(totalSaved)} sub={`${state.buckets.filter((bucket) => bucket.saved >= targetOf(bucket)).length} funded buckets.`} tone="emerald" />
+            <Stat title="Total saved in buckets" value={formatMoney(totalSaved)} sub={`${fundedCount} funded buckets.`} tone="emerald" />
           </div>
         </div>
 
-        <div className="mb-6 grid gap-4 lg:grid-cols-[1.25fr_1fr_auto]">
-          <div className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5">
-            <div className="mb-3 text-sm text-zinc-400">When money lands, drop it into unassigned first.</div>
-            <div className="mb-3 flex flex-wrap gap-2">
-              {PRESETS.map((preset) => (
-                <button key={preset.label} onClick={() => setState((prev) => ({ ...prev, paycheck: preset.amount }))} className="rounded-full border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-300 hover:border-zinc-500">
-                  {preset.label}
-                </button>
-              ))}
+        <SectionShell
+          title="Command bar"
+          sub="Feed the pool, switch views, and keep the board moving without hunting for buttons."
+          right={
+            <>
+              <div className="hidden md:block">
+                <ViewTabs value={state.view} onChange={(view) => setState((prev) => ({ ...prev, view }))} />
+              </div>
+              <ActionButton onClick={exportBackup}>Export</ActionButton>
+              <ActionButton onClick={() => fileRef.current?.click()}>Import</ActionButton>
+            </>
+          }
+        >
+          <div className="grid gap-4 lg:grid-cols-[1.35fr_1fr_auto]">
+            <div className="rounded-[26px] border border-zinc-800 bg-zinc-950/50 p-4">
+              <div className="mb-3 text-sm text-zinc-400">When money lands, let it sit in unassigned first.</div>
+              <div className="mb-3 flex flex-wrap gap-2">
+                {PRESETS.map((preset) => (
+                  <button
+                    key={preset.label}
+                    onClick={() => setState((prev) => ({ ...prev, paycheck: preset.amount }))}
+                    className="rounded-full border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-300 transition hover:border-zinc-500"
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                <MoneyInput value={String(state.paycheck)} onChange={(e) => setState((prev) => ({ ...prev, paycheck: parseMoney(e.target.value) }))} />
+                <ActionButton onClick={addToUnassigned} variant="primary">Add to unassigned</ActionButton>
+              </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-              <MoneyInput value={String(state.paycheck)} onChange={(e) => setState((prev) => ({ ...prev, paycheck: parseMoney(e.target.value) }))} />
-              <button onClick={addToUnassigned} className="rounded-2xl border border-zinc-700 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900">Add to unassigned</button>
+
+            <div className="grid gap-3 rounded-[26px] border border-zinc-800 bg-zinc-950/50 p-4 sm:grid-cols-2 lg:grid-cols-2">
+              <ActionButton onClick={autoFill}>Auto-fill</ActionButton>
+              <ActionButton onClick={exportBackup}>Export backup</ActionButton>
+              <ActionButton onClick={() => fileRef.current?.click()}>Import backup</ActionButton>
+              <ActionButton onClick={() => setState((prev) => ({ ...prev, view: prev.view === "today" ? "board" : prev.view === "board" ? "concert" : "today" }))}>
+                Cycle view
+              </ActionButton>
+            </div>
+
+            <div className="flex flex-col justify-between gap-3 rounded-[26px] border border-zinc-800 bg-zinc-950/50 p-4">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Last local save</div>
+                <div className="mt-2 text-sm leading-6 text-zinc-300">{formatStamp(state.lastSavedAt)}</div>
+              </div>
+              <ActionButton onClick={() => setState(INITIAL_STATE)} variant="ghost">Reset board</ActionButton>
             </div>
           </div>
+        </SectionShell>
 
-          <div className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5">
-            <div className="grid gap-2 sm:grid-cols-2">
-              <button onClick={autoFill} className="rounded-2xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-200 hover:border-zinc-500">Auto-fill</button>
-              <button onClick={exportBackup} className="rounded-2xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-200 hover:border-zinc-500">Export</button>
-              <button onClick={() => fileRef.current?.click()} className="rounded-2xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-200 hover:border-zinc-500">Import</button>
-              <button onClick={() => setState((prev) => ({ ...prev, view: prev.view === "board" ? "concert" : "board" }))} className="rounded-2xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-200 hover:border-zinc-500">
-                {state.view === "board" ? "Concert mode" : "Full board"}
-              </button>
-            </div>
-            <div className="mt-3 text-xs text-zinc-400">Last local save: {formatStamp(state.lastSavedAt)}</div>
-          </div>
-
-          <button onClick={() => setState(INITIAL_STATE)} className="rounded-3xl border border-zinc-800 bg-zinc-900/70 px-5 py-4 text-sm text-zinc-300 hover:border-zinc-600">Reset</button>
+        <div className="my-6 grid gap-4 md:grid-cols-4">
+          <Stat title="Total bucket targets" value={formatMoney(totalTargets)} sub="Current phase targets." tone="zinc" />
+          <Stat title="Still needed" value={formatMoney(totalNeeded)} sub="Remaining across active buckets." tone="amber" />
+          <Stat title="Archived buckets" value={String(archivedBuckets.length)} sub="Retired without disappearing." tone="violet" />
+          <Stat title="How to use" value="Add -> assign -> watch" sub="Buckets are labels. Rails are real." tone="sky" />
         </div>
+
+        {state.view === "today" ? (
+          <TodayView
+            unassigned={state.unassigned}
+            totalNeeded={totalNeeded}
+            nextCore={nextCore}
+            concertPool={concertPool}
+            nextShow={activeShows[0]}
+            buckets={activeBuckets}
+          />
+        ) : null}
 
         {state.view === "concert" ? (
           <div className="mb-6 space-y-4">
-            <div className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-semibold text-zinc-50">Concert mode</h2>
-                  <p className="mt-1 text-sm text-zinc-400">Show Fund + Small Joy + unassigned = concert-ready pool.</p>
-                </div>
-                <button onClick={() => { updateShows((shows) => [makeShow({ name: "New Show" }), ...shows]); log("Added new show card."); }} className="rounded-2xl border border-zinc-700 bg-zinc-950 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500">Add show</button>
-              </div>
+            <SectionShell
+              title="Concert mode"
+              sub="Show Fund + Small Joy + unassigned = concert-ready pool."
+              right={<ActionButton onClick={() => { updateShows((shows) => [makeShow({ name: "New Show" }), ...shows]); log("Added new show card."); }}>Add show</ActionButton>}
+            >
               <div className="grid gap-4 md:grid-cols-4">
                 <Stat title="Show Fund" value={formatMoney(showFund)} tone="fuchsia" />
                 <Stat title="Small Joy" value={formatMoney(smallJoy)} tone="violet" />
                 <Stat title="Concert-ready pool" value={formatMoney(concertPool)} tone="sky" />
-                <Stat title="Active shows" value={String(activeShows.length)} sub={activeShows[0] ? `${activeShows[0].name || "Untitled"} needs ${formatMoney(showNeeded(activeShows[0]))}` : "No active shows."} tone="amber" />
+                <Stat
+                  title="Active shows"
+                  value={String(activeShows.length)}
+                  sub={activeShows[0] ? `${activeShows[0].name || "Untitled"} needs ${formatMoney(showNeeded(activeShows[0]))}` : "No active shows."}
+                  tone="amber"
+                />
               </div>
-            </div>
+            </SectionShell>
 
             {activeShows.map((show) => (
               <ShowCard
@@ -664,106 +942,138 @@ export default function BucketSystemApp() {
                 show={show}
                 concertPool={concertPool}
                 onUpdate={(patch) => updateShows((shows) => shows.map((item) => (item.id === show.id ? { ...item, ...patch } : item)))}
-                onDuplicate={() => { updateShows((shows) => [makeShow({ ...show, name: `${show.name || "Show"} copy` }), ...shows]); log(`Duplicated ${show.name || "show"}.`); }}
-                onToggleActive={() => { updateShows((shows) => shows.map((item) => (item.id === show.id ? { ...item, active: !item.active } : item))); log(`${show.name || "Show"} marked ${show.active ? "inactive" : "active"}.`); }}
-                onDelete={() => { updateShows((shows) => shows.filter((item) => item.id !== show.id)); log(`Deleted ${show.name || "show"}.`); }}
+                onDuplicate={() => {
+                  updateShows((shows) => [makeShow({ ...show, name: `${show.name || "Show"} copy` }), ...shows]);
+                  log(`Duplicated ${show.name || "show"}.`);
+                }}
+                onToggleActive={() => {
+                  updateShows((shows) => shows.map((item) => (item.id === show.id ? { ...item, active: !item.active } : item)));
+                  log(`${show.name || "Show"} marked ${show.active ? "inactive" : "active"}.`);
+                }}
+                onDelete={() => {
+                  updateShows((shows) => shows.filter((item) => item.id !== show.id));
+                  log(`Deleted ${show.name || "show"}.`);
+                }}
               />
             ))}
 
             {inactiveShows.length ? (
-              <div className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5">
-                <div className="mb-4 text-lg font-semibold text-zinc-50">Inactive shows</div>
+              <SectionShell title="Inactive shows" sub="Kept for later without cluttering the active concert stack.">
                 <div className="space-y-3">
                   {inactiveShows.map((show) => (
-                    <div key={show.id} className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
+                    <div key={show.id} className="rounded-[24px] border border-zinc-800 bg-zinc-950/60 p-4">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
                           <div className="text-sm font-semibold text-zinc-50">{show.name || "Untitled show"}</div>
-                          <div className="mt-1 text-sm text-zinc-400">{show.date || "No date"} {show.venue ? `| ${show.venue}` : ""} | Needs {formatMoney(showNeeded(show))}</div>
+                          <div className="mt-1 text-sm text-zinc-400">
+                            {show.date || "No date"} {show.venue ? `| ${show.venue}` : ""} | Needs {formatMoney(showNeeded(show))}
+                          </div>
                         </div>
-                        <button onClick={() => updateShows((shows) => shows.map((item) => (item.id === show.id ? { ...item, active: true } : item)))} className="rounded-2xl border border-zinc-700 bg-zinc-950 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500">Reactivate</button>
+                        <ActionButton onClick={() => updateShows((shows) => shows.map((item) => (item.id === show.id ? { ...item, active: true } : item)))}>
+                          Reactivate
+                        </ActionButton>
                       </div>
                     </div>
                   ))}
                 </div>
-              </div>
+              </SectionShell>
             ) : null}
           </div>
         ) : null}
 
-        <div className="mb-6 grid gap-4 md:grid-cols-4">
-          <Stat title="Total bucket targets" value={formatMoney(totalTargets)} sub="Current phase targets." tone="zinc" />
-          <Stat title="Still needed" value={formatMoney(totalNeeded)} sub="Remaining across active buckets." tone="amber" />
-          <Stat title="Archived buckets" value={String(archivedBuckets.length)} sub="Retired without disappearing." tone="violet" />
-          <Stat title="How to use" value="Add -> assign -> watch" sub="Buckets are labels. Rails are real." tone="sky" />
-        </div>
-
-        <div className="space-y-4">
-          {visibleBuckets.map((bucket, index) => (
-            <BucketCard
-              key={bucket.id}
-              bucket={bucket}
-              draftValue={state.drafts[bucket.id] || ""}
-              onDraftChange={(e) => setState((prev) => ({ ...prev, drafts: { ...prev.drafts, [bucket.id]: e.target.value } }))}
-              onAssign={() => assign(bucket.id)}
-              onPullBack={() => pullBack(bucket.id)}
-              onRename={(name) => updateBuckets((buckets) => buckets.map((item) => (item.id === bucket.id ? { ...item, name } : item)))}
-              onToggleLock={() => updateBuckets((buckets) => buckets.map((item) => (item.id === bucket.id ? { ...item, locked: !item.locked } : item)))}
-              onArchiveToggle={() => updateBuckets((buckets) => buckets.map((item) => (item.id === bucket.id ? { ...item, archived: !item.archived } : item)))}
-              onMoveUp={() => moveBucket(bucket.id, "up")}
-              onMoveDown={() => moveBucket(bucket.id, "down")}
-              onAdvancePhase={() => {
-                if (bucket.saved < targetOf(bucket) || bucket.phaseIndex >= bucket.phases.length - 1) return;
-                updateBuckets((buckets) => buckets.map((item) => (item.id === bucket.id ? { ...item, phaseIndex: item.phaseIndex + 1 } : item)));
-                log(`${bucket.name} advanced to ${bucket.phases[bucket.phaseIndex + 1].label}.`);
-              }}
-              onAddPhase={() => updateBuckets((buckets) => buckets.map((item) => (item.id === bucket.id ? { ...item, phases: [...item.phases, makePhase(makeId("phase"), `Phase ${item.phases.length + 1}`, targetOf(item))] } : item)))}
-              onUpdatePhase={(phaseId, patch) => updateBuckets((buckets) => buckets.map((item) => item.id !== bucket.id ? item : { ...item, phases: item.phases.map((phase) => phase.id === phaseId ? { ...phase, ...patch, target: patch.target !== undefined ? parseMoney(patch.target) : phase.target } : phase) }))}
-              disableMoveUp={index === 0}
-              disableMoveDown={index === visibleBuckets.length - 1}
-            />
-          ))}
-        </div>
-
-        {archivedBuckets.length ? (
-          <div className="mt-8 rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5">
-            <div className="mb-4 text-lg font-semibold text-zinc-50">Archived buckets</div>
-            <div className="space-y-3">
-              {archivedBuckets.map((bucket) => (
-                <div key={bucket.id} className={`rounded-2xl border p-4 ${TONES[bucket.tone]}`}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-sm font-semibold text-zinc-50">{bucket.name}</div>
-                      <div className="mt-1 text-sm text-zinc-400">Saved {formatMoney(bucket.saved)} | {labelOf(bucket)}</div>
-                    </div>
-                    <button onClick={() => updateBuckets((buckets) => buckets.map((item) => (item.id === bucket.id ? { ...item, archived: false } : item)))} className="rounded-2xl border border-zinc-700 bg-zinc-950 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500">Restore</button>
-                  </div>
-                </div>
-              ))}
-            </div>
+        {state.view !== "today" ? (
+          <div className="space-y-4">
+            {visibleBuckets.map((bucket, index) => (
+              <BucketCard
+                key={bucket.id}
+                bucket={bucket}
+                draftValue={state.drafts[bucket.id] || ""}
+                onDraftChange={(e) => setState((prev) => ({ ...prev, drafts: { ...prev.drafts, [bucket.id]: e.target.value } }))}
+                onAssign={() => assign(bucket.id)}
+                onPullBack={() => pullBack(bucket.id)}
+                onRename={(name) => updateBuckets((buckets) => buckets.map((item) => (item.id === bucket.id ? { ...item, name } : item)))}
+                onToggleLock={() => updateBuckets((buckets) => buckets.map((item) => (item.id === bucket.id ? { ...item, locked: !item.locked } : item)))}
+                onArchiveToggle={() => updateBuckets((buckets) => buckets.map((item) => (item.id === bucket.id ? { ...item, archived: !item.archived } : item)))}
+                onMoveUp={() => moveBucket(bucket.id, "up")}
+                onMoveDown={() => moveBucket(bucket.id, "down")}
+                onAdvancePhase={() => {
+                  if (bucket.saved < targetOf(bucket) || bucket.phaseIndex >= bucket.phases.length - 1) return;
+                  updateBuckets((buckets) => buckets.map((item) => (item.id === bucket.id ? { ...item, phaseIndex: item.phaseIndex + 1 } : item)));
+                  log(`${bucket.name} advanced to ${bucket.phases[bucket.phaseIndex + 1].label}.`);
+                }}
+                onAddPhase={() =>
+                  updateBuckets((buckets) =>
+                    buckets.map((item) =>
+                      item.id === bucket.id ? { ...item, phases: [...item.phases, makePhase(makeId("phase"), `Phase ${item.phases.length + 1}`, targetOf(item))] } : item
+                    )
+                  )
+                }
+                onUpdatePhase={(phaseId, patch) =>
+                  updateBuckets((buckets) =>
+                    buckets.map((item) =>
+                      item.id !== bucket.id
+                        ? item
+                        : {
+                            ...item,
+                            phases: item.phases.map((phase) =>
+                              phase.id === phaseId ? { ...phase, ...patch, target: patch.target !== undefined ? parseMoney(patch.target) : phase.target } : phase
+                            ),
+                          }
+                    )
+                  )
+                }
+                disableMoveUp={index === 0}
+                disableMoveDown={index === visibleBuckets.length - 1}
+              />
+            ))}
           </div>
         ) : null}
 
-        <div className="mt-8 rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold text-zinc-50">History</h2>
-              <p className="mt-1 text-sm text-zinc-400">Tiny human log, not accountant theater.</p>
+        {archivedBuckets.length ? (
+          <div className="mt-8">
+            <SectionShell title="Archived buckets" sub="Retired buckets stay available without cluttering the main stack.">
+              <div className="space-y-3">
+                {archivedBuckets.map((bucket) => (
+                  <div key={bucket.id} className={cls("rounded-[24px] border p-4", TONES[bucket.tone])}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold text-zinc-50">{bucket.name}</div>
+                        <div className="mt-1 text-sm text-zinc-400">Saved {formatMoney(bucket.saved)} | {labelOf(bucket)}</div>
+                      </div>
+                      <ActionButton onClick={() => updateBuckets((buckets) => buckets.map((item) => (item.id === bucket.id ? { ...item, archived: false } : item)))}>
+                        Restore
+                      </ActionButton>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </SectionShell>
+          </div>
+        ) : null}
+
+        <div className="mt-8">
+          <SectionShell title="History" sub="Tiny human log, not accountant theater." right={<Pill>{state.history.length} entries</Pill>}>
+            <div className="space-y-2">
+              {state.history.length ? (
+                state.history.map((entry) => (
+                  <div key={entry.id} className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-3">
+                    <div className="text-xs text-zinc-500">{formatStamp(entry.ts)}</div>
+                    <div className="mt-1 text-sm text-zinc-200">{entry.text}</div>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4 text-sm text-zinc-400">No history yet. Start by adding money or assigning a dollar.</div>
+              )}
             </div>
-            <Pill>{state.history.length} entries</Pill>
-          </div>
-          <div className="space-y-2">
-            {state.history.length ? (
-              state.history.map((entry) => (
-                <div key={entry.id} className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-3">
-                  <div className="text-xs text-zinc-500">{formatStamp(entry.ts)}</div>
-                  <div className="mt-1 text-sm text-zinc-200">{entry.text}</div>
-                </div>
-              ))
-            ) : (
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4 text-sm text-zinc-400">No history yet. Start by adding money or assigning a dollar.</div>
-            )}
-          </div>
+          </SectionShell>
+        </div>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-800 bg-zinc-950/95 p-3 backdrop-blur md:hidden">
+        <div className="mx-auto grid max-w-7xl grid-cols-3 gap-2">
+          <button onClick={() => setState((prev) => ({ ...prev, view: "today" }))} className={cls("rounded-2xl px-3 py-3 text-xs uppercase tracking-[0.16em] transition", state.view === "today" ? "bg-zinc-100 text-zinc-900" : "border border-zinc-800 bg-zinc-900 text-zinc-300")}>Today</button>
+          <button onClick={() => setState((prev) => ({ ...prev, view: "board" }))} className={cls("rounded-2xl px-3 py-3 text-xs uppercase tracking-[0.16em] transition", state.view === "board" ? "bg-zinc-100 text-zinc-900" : "border border-zinc-800 bg-zinc-900 text-zinc-300")}>Board</button>
+          <button onClick={() => setState((prev) => ({ ...prev, view: "concert" }))} className={cls("rounded-2xl px-3 py-3 text-xs uppercase tracking-[0.16em] transition", state.view === "concert" ? "bg-zinc-100 text-zinc-900" : "border border-zinc-800 bg-zinc-900 text-zinc-300")}>Concert</button>
         </div>
       </div>
     </div>
