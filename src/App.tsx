@@ -10,27 +10,22 @@ const PRESETS = [
 ];
 
 const TONES = {
-  sky: "border-sky-900/70 bg-sky-950/30",
-  rose: "border-rose-900/70 bg-rose-950/30",
-  amber: "border-amber-900/70 bg-amber-950/30",
-  emerald: "border-emerald-900/70 bg-emerald-950/30",
-  zinc: "border-zinc-800 bg-zinc-950/70",
-  violet: "border-violet-900/70 bg-violet-950/30",
-  fuchsia: "border-fuchsia-900/70 bg-fuchsia-950/30",
-  cyan: "border-cyan-900/70 bg-cyan-950/30",
+  sky: "border-sky-900/70 bg-sky-950/35",
+  rose: "border-rose-900/70 bg-rose-950/35",
+  amber: "border-amber-900/70 bg-amber-950/35",
+  emerald: "border-emerald-900/70 bg-emerald-950/35",
+  zinc: "border-zinc-800 bg-zinc-950/72",
+  violet: "border-violet-900/70 bg-violet-950/35",
+  fuchsia: "border-fuchsia-900/70 bg-fuchsia-950/35",
+  cyan: "border-cyan-900/70 bg-cyan-950/35",
 };
 
 type ViewMode = "today" | "board" | "concert";
-
-function makeId(prefix = "id") {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function makePhase(id: string, label: string, target: number) {
-  return { id, label, target };
-}
+type BucketHorizon = "cycle" | "long";
+type DueType = "none" | "this_cycle" | "next_cycle" | "date";
 
 type Phase = { id: string; label: string; target: number };
+
 type Bucket = {
   id: string;
   name: string;
@@ -41,6 +36,9 @@ type Bucket = {
   archived: boolean;
   phaseIndex: number;
   phases: Phase[];
+  horizon: BucketHorizon;
+  dueType: DueType;
+  dueDate?: string;
 };
 
 type ShowPlan = {
@@ -66,6 +64,14 @@ type AppState = {
   history: { id: string; text: string; ts: string }[];
   lastSavedAt?: string;
 };
+
+function makeId(prefix = "id") {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function makePhase(id: string, label: string, target: number): Phase {
+  return { id, label, target };
+}
 
 function makeShow(overrides: Partial<ShowPlan> = {}): ShowPlan {
   return {
@@ -94,6 +100,8 @@ const INITIAL_BUCKETS: Bucket[] = [
     archived: false,
     phaseIndex: 0,
     phases: [makePhase("lights-1", "Current cycle", 520.28)],
+    horizon: "cycle",
+    dueType: "this_cycle",
   },
   {
     id: "repair",
@@ -108,6 +116,8 @@ const INITIAL_BUCKETS: Bucket[] = [
       makePhase("repair-1", "Fidelity + cleanup", 549.08),
       makePhase("repair-2", "Starter reserve", 800),
     ],
+    horizon: "long",
+    dueType: "none",
   },
   {
     id: "file",
@@ -122,6 +132,8 @@ const INITIAL_BUCKETS: Bucket[] = [
       makePhase("file-1", "Filing fee starter", 335),
       makePhase("file-2", "Runway build", 700),
     ],
+    horizon: "long",
+    dueType: "none",
   },
   {
     id: "chaos",
@@ -136,6 +148,8 @@ const INITIAL_BUCKETS: Bucket[] = [
       makePhase("chaos-1", "Micro pad", 300),
       makePhase("chaos-2", "Boring reserve", 1023.79),
     ],
+    horizon: "long",
+    dueType: "none",
   },
   {
     id: "life",
@@ -147,6 +161,8 @@ const INITIAL_BUCKETS: Bucket[] = [
     archived: false,
     phaseIndex: 0,
     phases: [makePhase("life-1", "Current float", 150)],
+    horizon: "cycle",
+    dueType: "this_cycle",
   },
   {
     id: "joy",
@@ -158,6 +174,8 @@ const INITIAL_BUCKETS: Bucket[] = [
     archived: false,
     phaseIndex: 0,
     phases: [makePhase("joy-1", "Current softness", 25)],
+    horizon: "cycle",
+    dueType: "next_cycle",
   },
   {
     id: "show",
@@ -173,6 +191,8 @@ const INITIAL_BUCKETS: Bucket[] = [
       makePhase("show-2", "Show + extras", 150),
       makePhase("show-3", "Next cycle cushion", 225),
     ],
+    horizon: "cycle",
+    dueType: "next_cycle",
   },
   {
     id: "future",
@@ -187,6 +207,8 @@ const INITIAL_BUCKETS: Bucket[] = [
       makePhase("future-1", "Starter build", 100),
       makePhase("future-2", "Bigger future buffer", 500),
     ],
+    horizon: "long",
+    dueType: "none",
   },
 ];
 
@@ -245,18 +267,158 @@ function cls(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
 }
 
+function horizonLabel(horizon: BucketHorizon): string {
+  return horizon === "cycle" ? "Cycle" : "Long-term";
+}
+
+function dueLabel(bucket: Bucket): string {
+  if (bucket.horizon === "long") return "Long arc";
+  if (bucket.dueType === "this_cycle") return "Due this cycle";
+  if (bucket.dueType === "next_cycle") return "Due next cycle";
+  if (bucket.dueType === "date") return bucket.dueDate ? `Due ${bucket.dueDate}` : "Pick a date";
+  return "No deadline";
+}
+
+function dueWeight(bucket: Bucket): number {
+  if (bucket.horizon === "long") return 100;
+  if (bucket.dueType === "this_cycle") return 0;
+  if (bucket.dueType === "next_cycle") return 1;
+  if (bucket.dueType === "date") {
+    if (!bucket.dueDate) return 3;
+    const due = new Date(`${bucket.dueDate}T00:00:00`);
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const diff = Math.floor((due.getTime() - now.getTime()) / 86400000);
+    if (diff < 0) return -1;
+    if (diff <= 7) return 0.5;
+    return 2;
+  }
+  return 3;
+}
+
+function bucketStatus(bucket: Bucket): { label: string; tone: keyof typeof TONES } {
+  const target = targetOf(bucket);
+  if (bucket.saved >= target && target > 0) return { label: "Funded", tone: "emerald" };
+  if (bucket.horizon === "long") return { label: "Building", tone: bucket.tone };
+  if (bucket.dueType === "this_cycle") return { label: "Current cycle", tone: "rose" };
+  if (bucket.dueType === "next_cycle") return { label: "Next cycle", tone: "amber" };
+  if (bucket.dueType === "date") return { label: "Date-bound", tone: "sky" };
+  return { label: "Open", tone: bucket.tone };
+}
+
 function iconForBucket(bucketId: string) {
   const map: Record<string, string> = {
-    lights: "◌",
-    repair: "▲",
-    file: "□",
-    chaos: "✦",
-    life: "•",
-    joy: "♡",
-    show: "◆",
-    future: "◎",
+    lights: "LT",
+    repair: "FB",
+    file: "FR",
+    chaos: "CP",
+    life: "DL",
+    joy: "SJ",
+    show: "SF",
+    future: "FY",
   };
-  return map[bucketId] || "•";
+  return map[bucketId] || "BK";
+}
+
+function normalizeBucket(bucket: Partial<Bucket>, fallback?: Bucket): Bucket {
+  const base = fallback || {
+    id: String(bucket.id || makeId("bucket")),
+    name: "Untitled bucket",
+    tone: "zinc" as keyof typeof TONES,
+    note: "",
+    saved: 0,
+    locked: false,
+    archived: false,
+    phaseIndex: 0,
+    phases: [makePhase("phase-1", "Main", 0)],
+    horizon: "long" as BucketHorizon,
+    dueType: "none" as DueType,
+    dueDate: "",
+  };
+
+  const phases = Array.isArray(bucket.phases) && bucket.phases.length
+    ? bucket.phases.map((phase, index) => ({
+        id: phase.id || makeId(`phase-${index}`),
+        label: phase.label || `Phase ${index + 1}`,
+        target: parseMoney(phase.target || 0),
+      }))
+    : base.phases;
+
+  const safeIndex = Math.min(Math.max(0, Number(bucket.phaseIndex ?? base.phaseIndex ?? 0)), Math.max(0, phases.length - 1));
+  const horizon = bucket.horizon === "cycle" ? "cycle" : bucket.horizon === "long" ? "long" : base.horizon;
+  const dueType: DueType =
+    horizon === "long"
+      ? "none"
+      : bucket.dueType === "this_cycle" || bucket.dueType === "next_cycle" || bucket.dueType === "date" || bucket.dueType === "none"
+      ? bucket.dueType
+      : base.dueType;
+
+  return {
+    ...base,
+    ...bucket,
+    tone: bucket.tone && bucket.tone in TONES ? bucket.tone : base.tone,
+    saved: parseMoney(bucket.saved ?? base.saved),
+    locked: Boolean(bucket.locked ?? base.locked),
+    archived: Boolean(bucket.archived ?? base.archived),
+    phaseIndex: safeIndex,
+    phases,
+    horizon,
+    dueType,
+    dueDate: bucket.dueDate || base.dueDate || "",
+  };
+}
+
+function normalizeState(raw: Partial<AppState>): AppState {
+  const defaultsById = Object.fromEntries(INITIAL_BUCKETS.map((bucket) => [bucket.id, bucket]));
+  const incoming = Array.isArray(raw.buckets) ? raw.buckets : [];
+  const seen = new Set<string>();
+
+  const mergedIncoming = incoming.map((bucket) => {
+    const fallback = bucket.id && defaultsById[String(bucket.id)] ? defaultsById[String(bucket.id)] : undefined;
+    const normalized = normalizeBucket(bucket, fallback);
+    seen.add(normalized.id);
+    return normalized;
+  });
+
+  const missingDefaults = INITIAL_BUCKETS.filter((bucket) => !seen.has(bucket.id)).map((bucket) => normalizeBucket(bucket, bucket));
+
+  return {
+    paycheck: parseMoney(raw.paycheck ?? INITIAL_STATE.paycheck),
+    unassigned: parseMoney(raw.unassigned ?? INITIAL_STATE.unassigned),
+    view: raw.view === "today" || raw.view === "board" || raw.view === "concert" ? raw.view : INITIAL_STATE.view,
+    buckets: [...mergedIncoming, ...missingDefaults],
+    drafts: raw.drafts && typeof raw.drafts === "object" ? raw.drafts : {},
+    shows: Array.isArray(raw.shows) && raw.shows.length
+      ? raw.shows.map((show) => ({
+          ...makeShow(),
+          ...show,
+          ticket: parseMoney(show.ticket ?? 0),
+          travel: parseMoney(show.travel ?? 0),
+          misc: parseMoney(show.misc ?? 0),
+          bought: Boolean(show.bought),
+          active: Boolean(show.active ?? true),
+        }))
+      : INITIAL_STATE.shows,
+    history: Array.isArray(raw.history)
+      ? raw.history.map((entry) => ({
+          id: entry.id || makeId("log"),
+          text: entry.text || "",
+          ts: entry.ts || new Date().toISOString(),
+        }))
+      : [],
+    lastSavedAt: raw.lastSavedAt,
+  };
+}
+
+function BucketAvatar({ bucket }: { bucket: Bucket }) {
+  return (
+    <div className={cls("relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl border text-[10px] font-semibold tracking-[0.22em] text-zinc-50", TONES[bucket.tone])}>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.14),transparent_65%)]" />
+      <div className="absolute inset-x-2 bottom-2 h-[2px] rounded-full bg-white/20" />
+      <div className="absolute inset-x-3 bottom-5 h-[2px] rounded-full bg-white/10" />
+      <span className="relative">{iconForBucket(bucket.id)}</span>
+    </div>
+  );
 }
 
 function ActionButton({
@@ -273,7 +435,7 @@ function ActionButton({
   className?: string;
 }) {
   const variants = {
-    primary: "border-zinc-100 bg-zinc-100 text-zinc-900 hover:bg-white",
+    primary: "border-zinc-100 bg-zinc-100 text-zinc-950 hover:bg-white",
     secondary: "border-zinc-700 bg-zinc-950/80 text-zinc-100 hover:border-zinc-500 hover:bg-zinc-900",
     ghost: "border-zinc-800 bg-transparent text-zinc-300 hover:border-zinc-600 hover:bg-zinc-950/60",
   };
@@ -293,22 +455,21 @@ function ActionButton({
   );
 }
 
-function Stat({ title, value, sub, tone = "zinc" }: { title: string; value: string; sub?: string; tone?: keyof typeof TONES }) {
-  return (
-    <div className={cls("rounded-[28px] border p-4 shadow-[0_0_0_1px_rgba(255,255,255,0.02)] backdrop-blur-sm", TONES[tone])}>
-      <div className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">{title}</div>
-      <div className="mt-2 text-2xl font-semibold tracking-tight text-zinc-50">{value}</div>
-      {sub ? <div className="mt-2 text-sm leading-5 text-zinc-400">{sub}</div> : null}
-    </div>
-  );
-}
-
-function Pill({ children, active = false }: { children: React.ReactNode; active?: boolean }) {
+function TonePill({
+  children,
+  tone = "zinc",
+  active = false,
+}: {
+  children: React.ReactNode;
+  tone?: keyof typeof TONES;
+  active?: boolean;
+}) {
   return (
     <span
       className={cls(
-        "rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.16em]",
-        active ? "border-zinc-100 bg-zinc-100 text-zinc-900" : "border-zinc-700 bg-zinc-950/80 text-zinc-300"
+        "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.18em]",
+        active ? "border-zinc-100 bg-zinc-100 text-zinc-900" : TONES[tone],
+        active ? "" : "text-zinc-200"
       )}
     >
       {children}
@@ -316,17 +477,53 @@ function Pill({ children, active = false }: { children: React.ReactNode; active?
   );
 }
 
-function SectionShell({ title, sub, right, children }: { title: string; sub?: string; right?: React.ReactNode; children: React.ReactNode }) {
+function Stat({
+  title,
+  value,
+  sub,
+  tone = "zinc",
+}: {
+  title: string;
+  value: string;
+  sub?: string;
+  tone?: keyof typeof TONES;
+}) {
   return (
-    <section className="rounded-[30px] border border-zinc-800/90 bg-zinc-900/60 p-5 shadow-2xl shadow-black/20 backdrop-blur-sm md:p-6">
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight text-zinc-50">{title}</h2>
-          {sub ? <p className="mt-1 text-sm leading-6 text-zinc-400">{sub}</p> : null}
-        </div>
-        {right ? <div className="flex flex-wrap gap-2">{right}</div> : null}
+    <div className={cls("relative overflow-hidden rounded-[30px] border p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)] backdrop-blur-sm", TONES[tone])}>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_55%)]" />
+      <div className="relative">
+        <div className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">{title}</div>
+        <div className="mt-3 text-3xl font-semibold tracking-tight text-zinc-50">{value}</div>
+        {sub ? <div className="mt-2 text-sm leading-6 text-zinc-400">{sub}</div> : null}
       </div>
-      {children}
+    </div>
+  );
+}
+
+function SectionShell({
+  title,
+  sub,
+  right,
+  children,
+}: {
+  title: string;
+  sub?: string;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="relative overflow-hidden rounded-[32px] border border-zinc-800/90 bg-zinc-900/68 p-5 shadow-2xl shadow-black/20 backdrop-blur-sm md:p-6">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.05),transparent_58%)]" />
+      <div className="relative">
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight text-zinc-50">{title}</h2>
+            {sub ? <p className="mt-1 text-sm leading-6 text-zinc-400">{sub}</p> : null}
+          </div>
+          {right ? <div className="flex flex-wrap gap-2">{right}</div> : null}
+        </div>
+        {children}
+      </div>
     </section>
   );
 }
@@ -339,7 +536,7 @@ function ViewTabs({ value, onChange }: { value: ViewMode; onChange: (view: ViewM
   ];
 
   return (
-    <div className="inline-flex rounded-full border border-zinc-800 bg-zinc-950/70 p-1 shadow-inner shadow-black/25">
+    <div className="inline-flex rounded-full border border-zinc-800 bg-zinc-950/70 p-1 shadow-inner shadow-black/30">
       {tabs.map((tab) => (
         <button
           key={tab.value}
@@ -356,7 +553,13 @@ function ViewTabs({ value, onChange }: { value: ViewMode; onChange: (view: ViewM
   );
 }
 
-function MoneyInput({ value, onChange }: { value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void }) {
+function MoneyInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}) {
   const [draft, setDraft] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
 
@@ -367,7 +570,7 @@ function MoneyInput({ value, onChange }: { value: string; onChange: (e: React.Ch
   }, [value, isFocused]);
 
   return (
-    <div className="flex items-center gap-2 rounded-2xl border border-zinc-700 bg-zinc-950/90 px-3 py-2.5 text-sm text-zinc-300 shadow-inner shadow-black/20">
+    <div className="flex items-center gap-2 rounded-2xl border border-zinc-700 bg-zinc-950/90 px-3 py-2.5 text-sm text-zinc-300 shadow-inner shadow-black/25">
       <span className="text-zinc-500">$</span>
       <input
         className="w-full bg-transparent text-right text-zinc-100 outline-none placeholder:text-zinc-600"
@@ -380,9 +583,7 @@ function MoneyInput({ value, onChange }: { value: string; onChange: (e: React.Ch
           setDraft(e.target.value);
           onChange(e);
         }}
-        onBlur={() => {
-          setIsFocused(false);
-        }}
+        onBlur={() => setIsFocused(false)}
         inputMode="decimal"
       />
     </div>
@@ -392,17 +593,22 @@ function MoneyInput({ value, onChange }: { value: string; onChange: (e: React.Ch
 function BucketMiniCard({ bucket }: { bucket: Bucket }) {
   const target = targetOf(bucket);
   const pct = progress(bucket.saved, target);
+  const status = bucketStatus(bucket);
+
   return (
-    <div className={cls("rounded-[24px] border p-4", TONES[bucket.tone])}>
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/70 text-sm text-zinc-100">{iconForBucket(bucket.id)}</div>
+    <div className={cls("rounded-[26px] border p-4 shadow-xl shadow-black/10", TONES[bucket.tone])}>
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <BucketAvatar bucket={bucket} />
           <div>
             <div className="text-sm font-semibold text-zinc-50">{bucket.name}</div>
-            <div className="text-xs text-zinc-400">{labelOf(bucket)}</div>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              <TonePill tone={bucket.tone}>{horizonLabel(bucket.horizon)}</TonePill>
+              <TonePill tone={status.tone}>{dueLabel(bucket)}</TonePill>
+            </div>
           </div>
         </div>
-        {bucket.saved >= target && target > 0 ? <Pill active>Ready</Pill> : null}
+        {bucket.saved >= target && target > 0 ? <TonePill active>Ready</TonePill> : null}
       </div>
       <div className="mb-2 flex items-center justify-between text-sm text-zinc-300">
         <span>{formatMoney(bucket.saved)}</span>
@@ -415,81 +621,59 @@ function BucketMiniCard({ bucket }: { bucket: Bucket }) {
   );
 }
 
-function TodayPriorityCard({
-  title,
-  amount,
-  sub,
-  tone,
-}: {
-  title: string;
-  amount: string;
-  sub: string;
-  tone: keyof typeof TONES;
-}) {
-  return <Stat title={title} value={amount} sub={sub} tone={tone} />;
-}
-
 function TodayView({
   unassigned,
   totalNeeded,
+  cycleBuckets,
+  longBuckets,
   nextCore,
   concertPool,
   nextShow,
-  buckets,
 }: {
   unassigned: number;
   totalNeeded: number;
+  cycleBuckets: Bucket[];
+  longBuckets: Bucket[];
   nextCore?: Bucket;
   concertPool: number;
   nextShow?: ShowPlan;
-  buckets: Bucket[];
 }) {
-  const essentials = buckets.filter((bucket) => ["lights", "repair", "file", "chaos"].includes(bucket.id));
-  const life = buckets.filter((bucket) => ["life", "joy", "show", "future"].includes(bucket.id));
+  const cycleNeeded = cycleBuckets.reduce((sum, bucket) => sum + Math.max(0, targetOf(bucket) - bucket.saved), 0);
+  const longNeeded = longBuckets.reduce((sum, bucket) => sum + Math.max(0, targetOf(bucket) - bucket.saved), 0);
 
   return (
     <div className="mb-6 space-y-4">
-      <SectionShell title="Today view" sub="The short version of what matters right now.">
+      <SectionShell title="Today view" sub="Cycle pressure separated from long-arc building so the board feels calmer.">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <TodayPriorityCard
-            title="Unassigned now"
-            amount={formatMoney(unassigned)}
-            sub="Money waiting for a job."
-            tone="cyan"
-          />
-          <TodayPriorityCard
-            title="Next priority"
-            amount={nextCore ? formatMoney(Math.max(0, targetOf(nextCore) - nextCore.saved)) : formatMoney(0)}
-            sub={nextCore ? `${nextCore.name} is next.` : "No active core priority."}
+          <Stat title="Unassigned now" value={formatMoney(unassigned)} sub="Money waiting for a job." tone="cyan" />
+          <Stat
+            title="Next cycle pressure"
+            value={formatMoney(cycleNeeded)}
+            sub={nextCore ? `${nextCore.name} is still on deck.` : "No cycle bucket is screaming right now."}
             tone="rose"
           />
-          <TodayPriorityCard
+          <Stat
             title="Concert-ready pool"
-            amount={formatMoney(concertPool)}
+            value={formatMoney(concertPool)}
             sub={nextShow ? `${nextShow.name || "Next show"} needs ${formatMoney(showNeeded(nextShow))}.` : "No active show card right now."}
             tone="fuchsia"
           />
-          <TodayPriorityCard
-            title="Total still needed"
-            amount={formatMoney(totalNeeded)}
-            sub="Across all active bucket phases."
-            tone="amber"
-          />
+          <Stat title="Long-arc build" value={formatMoney(longNeeded)} sub={`Total still needed across long-term buckets. ${formatMoney(totalNeeded)} overall.`} tone="emerald" />
         </div>
       </SectionShell>
 
-      <div className="grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
-        <SectionShell title="Core priorities" sub="The buckets most likely to keep future-you from cussing current-you out.">
+      <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+        <SectionShell title="Cycle-specific buckets" sub="Closer to deadlines, pay-cycle pressure, or near-term choices.">
           <div className="grid gap-3 md:grid-cols-2">
-            {essentials.map((bucket) => (
+            {cycleBuckets.map((bucket) => (
               <BucketMiniCard key={bucket.id} bucket={bucket} />
             ))}
           </div>
         </SectionShell>
 
-        <SectionShell title="Life + concerts" sub="The softer side of the system, still with boundaries.">
+        <SectionShell title="Long-term build" sub="Not everything needs a countdown. These are meant to quietly accumulate.">
           <div className="grid gap-3 md:grid-cols-2">
-            {life.map((bucket) => (
+            {longBuckets.map((bucket) => (
               <BucketMiniCard key={bucket.id} bucket={bucket} />
             ))}
           </div>
@@ -499,15 +683,27 @@ function TodayView({
   );
 }
 
-function BucketCard(props: {
+function BucketCard({
+  bucket,
+  draftValue,
+  onDraftChange,
+  onAssign,
+  onPullBack,
+  onPatch,
+  onMoveUp,
+  onMoveDown,
+  onAdvancePhase,
+  onAddPhase,
+  onUpdatePhase,
+  disableMoveUp,
+  disableMoveDown,
+}: {
   bucket: Bucket;
   draftValue: string;
   onDraftChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onAssign: () => void;
   onPullBack: () => void;
-  onRename: (name: string) => void;
-  onToggleLock: () => void;
-  onArchiveToggle: () => void;
+  onPatch: (patch: Partial<Bucket>) => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
   onAdvancePhase: () => void;
@@ -516,92 +712,171 @@ function BucketCard(props: {
   disableMoveUp: boolean;
   disableMoveDown: boolean;
 }) {
-  const { bucket, draftValue, onDraftChange, onAssign, onPullBack, onRename, onToggleLock, onArchiveToggle, onMoveUp, onMoveDown, onAdvancePhase, onAddPhase, onUpdatePhase, disableMoveUp, disableMoveDown } = props;
   const target = targetOf(bucket);
   const remaining = Math.max(0, target - bucket.saved);
   const pct = progress(bucket.saved, target);
   const funded = bucket.saved >= target && target > 0;
   const canAdvance = bucket.phaseIndex < bucket.phases.length - 1;
+  const status = bucketStatus(bucket);
 
   return (
-    <div className={cls("rounded-[30px] border p-5 shadow-2xl shadow-black/10 backdrop-blur-sm", TONES[bucket.tone])}>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0 flex-1">
-          <div className="mb-3 flex flex-wrap gap-2">
-            <Pill>{labelOf(bucket)}</Pill>
-            {funded ? <Pill active>Funded</Pill> : null}
-            {bucket.locked ? <Pill>Locked</Pill> : null}
-            {bucket.archived ? <Pill>Archived</Pill> : null}
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/70 text-sm text-zinc-100">{iconForBucket(bucket.id)}</div>
-            <input value={bucket.name} onChange={(e) => onRename(e.target.value)} className="w-full bg-transparent text-lg font-semibold tracking-tight text-zinc-50 outline-none" />
-          </div>
-          <p className="mt-2 text-sm leading-6 text-zinc-400">{bucket.note}</p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:w-[260px] lg:grid-cols-1">
-          <div className="rounded-2xl border border-zinc-800/90 bg-zinc-950/70 p-3">
-            <div className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Saved</div>
-            <div className="mt-1 text-2xl font-semibold tracking-tight text-zinc-50">{formatMoney(bucket.saved)}</div>
-          </div>
-          <div className="rounded-2xl border border-zinc-800/90 bg-zinc-950/70 p-3">
-            <div className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Target</div>
-            <div className="mt-1 text-2xl font-semibold tracking-tight text-zinc-50">{formatMoney(target)}</div>
-          </div>
-        </div>
-      </div>
+    <div className={cls("relative overflow-hidden rounded-[32px] border p-5 shadow-2xl shadow-black/15 backdrop-blur-sm", TONES[bucket.tone])}>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_55%)]" />
+      <div className="relative">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="mb-3 flex flex-wrap gap-2">
+              <TonePill tone={bucket.tone}>{labelOf(bucket)}</TonePill>
+              <TonePill tone={bucket.tone}>{horizonLabel(bucket.horizon)}</TonePill>
+              <TonePill tone={status.tone}>{dueLabel(bucket)}</TonePill>
+              {funded ? <TonePill active>Funded</TonePill> : null}
+              {bucket.locked ? <TonePill tone="zinc">Locked</TonePill> : null}
+              {bucket.archived ? <TonePill tone="zinc">Archived</TonePill> : null}
+            </div>
 
-      <div className="mt-5">
-        <div className="mb-2 flex items-center justify-between text-sm text-zinc-300">
-          <span>{pct.toFixed(0)}% built</span>
-          <span>{formatMoney(remaining)} to go</span>
-        </div>
-        <div className="h-3 overflow-hidden rounded-full bg-zinc-950/90 ring-1 ring-white/5">
-          <div className="h-full rounded-full bg-zinc-100 transition-all duration-300" style={{ width: `${pct}%` }} />
-        </div>
-      </div>
+            <div className="flex items-center gap-3">
+              <BucketAvatar bucket={bucket} />
+              <input
+                value={bucket.name}
+                onChange={(e) => onPatch({ name: e.target.value })}
+                className="w-full bg-transparent text-lg font-semibold tracking-tight text-zinc-50 outline-none"
+              />
+            </div>
+            <p className="mt-2 text-sm leading-6 text-zinc-400">{bucket.note}</p>
 
-      <div className="mt-5 grid gap-3 xl:grid-cols-[1fr_auto_auto_auto_auto]">
-        <MoneyInput value={draftValue} onChange={onDraftChange} />
-        <ActionButton onClick={onAssign} variant="primary">Assign</ActionButton>
-        <ActionButton onClick={onPullBack}>Pull back</ActionButton>
-        <ActionButton onClick={onToggleLock}>{bucket.locked ? "Unlock" : "Lock"}</ActionButton>
-        <div className="grid grid-cols-2 gap-2">
-          <ActionButton onClick={onMoveUp} disabled={disableMoveUp} className="px-3">Up</ActionButton>
-          <ActionButton onClick={onMoveDown} disabled={disableMoveDown} className="px-3">Down</ActionButton>
-        </div>
-      </div>
-
-      <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        <ActionButton onClick={onAdvancePhase} disabled={!funded || !canAdvance}>Advance phase</ActionButton>
-        <ActionButton onClick={onArchiveToggle}>{bucket.archived ? "Restore" : "Archive"}</ActionButton>
-      </div>
-
-      <div className="mt-5 rounded-[24px] border border-zinc-800 bg-zinc-950/60 p-4 shadow-inner shadow-black/20">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div>
-            <div className="text-sm font-medium text-zinc-100">Phases</div>
-            <div className="mt-1 text-xs text-zinc-400">Saved dollars stay. Targets evolve.</div>
-          </div>
-          <ActionButton onClick={onAddPhase} className="px-3 py-2 text-xs">Add phase</ActionButton>
-        </div>
-        <div className="space-y-2">
-          {bucket.phases.map((phase, index) => {
-            const active = index === bucket.phaseIndex;
-            return (
-              <div key={phase.id} className={cls("grid gap-2 rounded-2xl border p-3 md:grid-cols-[1fr_180px]", active ? "border-zinc-100 bg-zinc-900/90" : "border-zinc-800 bg-zinc-950/70")}>
-                <input value={phase.label} onChange={(e) => onUpdatePhase(phase.id, { label: e.target.value })} className="bg-transparent text-sm text-zinc-100 outline-none" />
-                <MoneyInput value={String(phase.target)} onChange={(e) => onUpdatePhase(phase.id, { target: parseMoney(e.target.value) })} />
+            <div className="mt-4 grid gap-3 xl:grid-cols-[auto_auto_1fr_160px]">
+              <div className="rounded-2xl border border-zinc-800/90 bg-zinc-950/70 p-3">
+                <div className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Saved</div>
+                <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-50">{formatMoney(bucket.saved)}</div>
               </div>
-            );
-          })}
+              <div className="rounded-2xl border border-zinc-800/90 bg-zinc-950/70 p-3">
+                <div className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Target</div>
+                <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-50">{formatMoney(target)}</div>
+              </div>
+              <div className="rounded-2xl border border-zinc-800/90 bg-zinc-950/70 p-3">
+                <div className="mb-2 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Horizon</div>
+                <div className="flex flex-wrap gap-2">
+                  <ActionButton
+                    onClick={() => onPatch({ horizon: "cycle", dueType: bucket.horizon === "cycle" ? bucket.dueType : "this_cycle" })}
+                    variant={bucket.horizon === "cycle" ? "primary" : "secondary"}
+                    className="px-3 py-2 text-xs"
+                  >
+                    Cycle
+                  </ActionButton>
+                  <ActionButton
+                    onClick={() => onPatch({ horizon: "long", dueType: "none", dueDate: "" })}
+                    variant={bucket.horizon === "long" ? "primary" : "secondary"}
+                    className="px-3 py-2 text-xs"
+                  >
+                    Long-term
+                  </ActionButton>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-zinc-800/90 bg-zinc-950/70 p-3">
+                <div className="mb-2 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Due</div>
+                {bucket.horizon === "cycle" ? (
+                  <div className="space-y-2">
+                    <select
+                      value={bucket.dueType}
+                      onChange={(e) => {
+                        const nextDueType = e.target.value as DueType;
+                        onPatch({ dueType: nextDueType, dueDate: nextDueType === "date" ? bucket.dueDate || "" : "" });
+                      }}
+                      className="w-full rounded-xl border border-zinc-700 bg-zinc-950/80 px-3 py-2 text-sm text-zinc-100 outline-none"
+                    >
+                      <option value="none">No deadline</option>
+                      <option value="this_cycle">This cycle</option>
+                      <option value="next_cycle">Next cycle</option>
+                      <option value="date">Specific date</option>
+                    </select>
+                    {bucket.dueType === "date" ? (
+                      <input
+                        type="date"
+                        value={bucket.dueDate || ""}
+                        onChange={(e) => onPatch({ dueDate: e.target.value })}
+                        className="w-full rounded-xl border border-zinc-700 bg-zinc-950/80 px-3 py-2 text-sm text-zinc-100 outline-none"
+                      />
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="text-sm leading-6 text-zinc-400">Long-term buckets stay out of countdown mode.</div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:w-[260px]">
+            <div className="mb-2 flex items-center justify-between text-sm text-zinc-300">
+              <span>{pct.toFixed(0)}% built</span>
+              <span>{formatMoney(remaining)} to go</span>
+            </div>
+            <div className="h-3 overflow-hidden rounded-full bg-zinc-950/90 ring-1 ring-white/5">
+              <div className="h-full rounded-full bg-zinc-100 transition-all duration-300" style={{ width: `${pct}%` }} />
+            </div>
+
+            <div className="mt-4 grid gap-3">
+              <MoneyInput value={draftValue} onChange={onDraftChange} />
+              <div className="grid grid-cols-2 gap-2">
+                <ActionButton onClick={onAssign} variant="primary">Assign</ActionButton>
+                <ActionButton onClick={onPullBack}>Pull back</ActionButton>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <ActionButton onClick={() => onPatch({ locked: !bucket.locked })}>{bucket.locked ? "Unlock" : "Lock"}</ActionButton>
+                <ActionButton onClick={() => onPatch({ archived: !bucket.archived })}>{bucket.archived ? "Restore" : "Archive"}</ActionButton>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <ActionButton onClick={onMoveUp} disabled={disableMoveUp} className="px-3">Up</ActionButton>
+                <ActionButton onClick={onMoveDown} disabled={disableMoveDown} className="px-3">Down</ActionButton>
+              </div>
+              <ActionButton onClick={onAdvancePhase} disabled={!funded || !canAdvance}>Advance phase</ActionButton>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 rounded-[24px] border border-zinc-800 bg-zinc-950/60 p-4 shadow-inner shadow-black/20">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-medium text-zinc-100">Phases</div>
+              <div className="mt-1 text-xs text-zinc-400">Saved dollars stay. Targets evolve.</div>
+            </div>
+            <ActionButton onClick={onAddPhase} className="px-3 py-2 text-xs">Add phase</ActionButton>
+          </div>
+          <div className="space-y-2">
+            {bucket.phases.map((phase, index) => {
+              const active = index === bucket.phaseIndex;
+              return (
+                <div
+                  key={phase.id}
+                  className={cls(
+                    "grid gap-2 rounded-2xl border p-3 md:grid-cols-[1fr_180px]",
+                    active ? "border-zinc-100 bg-zinc-900/90" : "border-zinc-800 bg-zinc-950/70"
+                  )}
+                >
+                  <input
+                    value={phase.label}
+                    onChange={(e) => onUpdatePhase(phase.id, { label: e.target.value })}
+                    className="bg-transparent text-sm text-zinc-100 outline-none"
+                  />
+                  <MoneyInput value={String(phase.target)} onChange={(e) => onUpdatePhase(phase.id, { target: parseMoney(e.target.value) })} />
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function ShowCard(props: {
+function ShowCard({
+  show,
+  concertPool,
+  onUpdate,
+  onDuplicate,
+  onToggleActive,
+  onDelete,
+}: {
   show: ShowPlan;
   concertPool: number;
   onUpdate: (patch: Partial<ShowPlan>) => void;
@@ -609,74 +884,76 @@ function ShowCard(props: {
   onToggleActive: () => void;
   onDelete: () => void;
 }) {
-  const { show, concertPool, onUpdate, onDuplicate, onToggleActive, onDelete } = props;
   const total = showTotal(show);
   const needed = showNeeded(show);
   const ready = concertPool >= needed;
   const pct = total > 0 ? Math.min(100, (concertPool / total) * 100) : 0;
 
   return (
-    <div className="rounded-[30px] border border-zinc-800 bg-zinc-900/65 p-5 shadow-2xl shadow-black/15 backdrop-blur-sm">
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Pill>{show.active ? "Active" : "Inactive"}</Pill>
-        <Pill>{show.bought ? "Ticket bought" : "Ticket needed"}</Pill>
-        <Pill active={ready}>{ready ? "Can happen now" : "Needs more money"}</Pill>
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-2">
-        <label className="block rounded-2xl border border-zinc-800 bg-zinc-950/60 p-3">
-          <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Show name</div>
-          <input value={show.name} onChange={(e) => onUpdate({ name: e.target.value })} className="w-full bg-transparent text-zinc-100 outline-none" placeholder="Currents / ERRA / etc" />
-        </label>
-        <label className="block rounded-2xl border border-zinc-800 bg-zinc-950/60 p-3">
-          <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Venue</div>
-          <input value={show.venue} onChange={(e) => onUpdate({ venue: e.target.value })} className="w-full bg-transparent text-zinc-100 outline-none" placeholder="El Corazon / etc" />
-        </label>
-        <label className="block rounded-2xl border border-zinc-800 bg-zinc-950/60 p-3">
-          <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Date</div>
-          <input type="date" value={show.date} onChange={(e) => onUpdate({ date: e.target.value })} className="w-full bg-transparent text-zinc-100 outline-none" />
-        </label>
-        <label className="block rounded-2xl border border-zinc-800 bg-zinc-950/60 p-3">
-          <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Notes</div>
-          <input value={show.notes} onChange={(e) => onUpdate({ notes: e.target.value })} className="w-full bg-transparent text-zinc-100 outline-none" placeholder="Two tickets? parking? no merch?" />
-        </label>
-      </div>
-
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
-        <div>
-          <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Ticket</div>
-          <MoneyInput value={String(show.ticket)} onChange={(e) => onUpdate({ ticket: parseMoney(e.target.value) })} />
+    <div className="relative overflow-hidden rounded-[32px] border border-zinc-800 bg-zinc-900/68 p-5 shadow-2xl shadow-black/15 backdrop-blur-sm">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(217,70,239,0.08),transparent_55%)]" />
+      <div className="relative">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <TonePill tone="fuchsia">{show.active ? "Active" : "Inactive"}</TonePill>
+          <TonePill tone="violet">{show.bought ? "Ticket bought" : "Ticket needed"}</TonePill>
+          <TonePill tone={ready ? "emerald" : "amber"}>{ready ? "Can happen now" : "Needs more money"}</TonePill>
         </div>
-        <div>
-          <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Travel</div>
-          <MoneyInput value={String(show.travel)} onChange={(e) => onUpdate({ travel: parseMoney(e.target.value) })} />
-        </div>
-        <div>
-          <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Misc</div>
-          <MoneyInput value={String(show.misc)} onChange={(e) => onUpdate({ misc: parseMoney(e.target.value) })} />
-        </div>
-      </div>
 
-      <div className="mt-4 flex flex-wrap gap-3">
-        <ActionButton onClick={() => onUpdate({ bought: !show.bought })}>{show.bought ? "Mark ticket needed" : "Mark ticket bought"}</ActionButton>
-        <ActionButton onClick={onToggleActive}>{show.active ? "Set inactive" : "Set active"}</ActionButton>
-        <ActionButton onClick={onDuplicate}>Duplicate</ActionButton>
-        <ActionButton onClick={onDelete} variant="ghost">Delete</ActionButton>
-      </div>
-
-      <div className="mt-5 grid gap-4 md:grid-cols-3">
-        <Stat title="Total target" value={formatMoney(total)} sub="Ticket + travel + misc" tone="fuchsia" />
-        <Stat title="Needed now" value={formatMoney(needed)} sub={show.bought ? "Ticket excluded" : "Full amount still needed"} tone="violet" />
-        <Stat title="Pool test" value={ready ? "YES" : "NO"} sub={`${formatMoney(concertPool)} against ${formatMoney(needed)}`} tone={ready ? "emerald" : "amber"} />
-      </div>
-
-      <div className="mt-4">
-        <div className="mb-2 flex items-center justify-between text-sm text-zinc-300">
-          <span>Pool vs full show target</span>
-          <span>{pct.toFixed(0)}%</span>
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="block rounded-2xl border border-zinc-800 bg-zinc-950/60 p-3">
+            <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Show name</div>
+            <input value={show.name} onChange={(e) => onUpdate({ name: e.target.value })} className="w-full bg-transparent text-zinc-100 outline-none" placeholder="Currents / ERRA / etc" />
+          </label>
+          <label className="block rounded-2xl border border-zinc-800 bg-zinc-950/60 p-3">
+            <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Venue</div>
+            <input value={show.venue} onChange={(e) => onUpdate({ venue: e.target.value })} className="w-full bg-transparent text-zinc-100 outline-none" placeholder="El Corazon / etc" />
+          </label>
+          <label className="block rounded-2xl border border-zinc-800 bg-zinc-950/60 p-3">
+            <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Date</div>
+            <input type="date" value={show.date} onChange={(e) => onUpdate({ date: e.target.value })} className="w-full bg-transparent text-zinc-100 outline-none" />
+          </label>
+          <label className="block rounded-2xl border border-zinc-800 bg-zinc-950/60 p-3">
+            <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Notes</div>
+            <input value={show.notes} onChange={(e) => onUpdate({ notes: e.target.value })} className="w-full bg-transparent text-zinc-100 outline-none" placeholder="Two tickets? parking? no merch?" />
+          </label>
         </div>
-        <div className="h-3 overflow-hidden rounded-full bg-zinc-950 ring-1 ring-white/5">
-          <div className="h-full rounded-full bg-zinc-100 transition-all duration-300" style={{ width: `${pct}%` }} />
+
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <div>
+            <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Ticket</div>
+            <MoneyInput value={String(show.ticket)} onChange={(e) => onUpdate({ ticket: parseMoney(e.target.value) })} />
+          </div>
+          <div>
+            <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Travel</div>
+            <MoneyInput value={String(show.travel)} onChange={(e) => onUpdate({ travel: parseMoney(e.target.value) })} />
+          </div>
+          <div>
+            <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Misc</div>
+            <MoneyInput value={String(show.misc)} onChange={(e) => onUpdate({ misc: parseMoney(e.target.value) })} />
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-3">
+          <ActionButton onClick={() => onUpdate({ bought: !show.bought })}>{show.bought ? "Mark ticket needed" : "Mark ticket bought"}</ActionButton>
+          <ActionButton onClick={onToggleActive}>{show.active ? "Set inactive" : "Set active"}</ActionButton>
+          <ActionButton onClick={onDuplicate}>Duplicate</ActionButton>
+          <ActionButton onClick={onDelete} variant="ghost">Delete</ActionButton>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-3">
+          <Stat title="Total target" value={formatMoney(total)} sub="Ticket + travel + misc" tone="fuchsia" />
+          <Stat title="Needed now" value={formatMoney(needed)} sub={show.bought ? "Ticket excluded" : "Full amount still needed"} tone="violet" />
+          <Stat title="Pool test" value={ready ? "YES" : "NO"} sub={`${formatMoney(concertPool)} against ${formatMoney(needed)}`} tone={ready ? "emerald" : "amber"} />
+        </div>
+
+        <div className="mt-4">
+          <div className="mb-2 flex items-center justify-between text-sm text-zinc-300">
+            <span>Pool vs full show target</span>
+            <span>{pct.toFixed(0)}%</span>
+          </div>
+          <div className="h-3 overflow-hidden rounded-full bg-zinc-950 ring-1 ring-white/5">
+            <div className="h-full rounded-full bg-zinc-100 transition-all duration-300" style={{ width: `${pct}%` }} />
+          </div>
         </div>
       </div>
     </div>
@@ -691,8 +968,8 @@ export default function BucketSystemApp() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return;
-      const parsed = JSON.parse(raw) as AppState;
-      setState({ ...INITIAL_STATE, ...parsed });
+      const parsed = JSON.parse(raw) as Partial<AppState>;
+      setState(normalizeState(parsed));
     } catch {
       // ignore bad local storage
     }
@@ -704,6 +981,20 @@ export default function BucketSystemApp() {
   }, [state]);
 
   const activeBuckets = useMemo(() => state.buckets.filter((bucket) => !bucket.archived), [state.buckets]);
+  const cycleBuckets = useMemo(
+    () =>
+      activeBuckets
+        .filter((bucket) => bucket.horizon === "cycle")
+        .sort((a, b) => dueWeight(a) - dueWeight(b) || targetOf(a) - targetOf(b)),
+    [activeBuckets]
+  );
+  const longBuckets = useMemo(
+    () =>
+      activeBuckets
+        .filter((bucket) => bucket.horizon === "long")
+        .sort((a, b) => targetOf(a) - targetOf(b)),
+    [activeBuckets]
+  );
   const visibleBuckets = useMemo(
     () => state.buckets.filter((bucket) => !bucket.archived && (state.view === "concert" ? ["joy", "show"].includes(bucket.id) : true)),
     [state.buckets, state.view]
@@ -713,7 +1004,10 @@ export default function BucketSystemApp() {
   const totalTargets = useMemo(() => state.buckets.reduce((sum, bucket) => sum + targetOf(bucket), 0), [state.buckets]);
   const totalNeeded = useMemo(() => state.buckets.reduce((sum, bucket) => sum + Math.max(0, targetOf(bucket) - bucket.saved), 0), [state.buckets]);
   const fundedCount = useMemo(() => state.buckets.filter((bucket) => bucket.saved >= targetOf(bucket) && targetOf(bucket) > 0).length, [state.buckets]);
-  const nextCore = useMemo(() => activeBuckets.find((bucket) => ["lights", "repair", "file", "chaos"].includes(bucket.id) && bucket.saved < targetOf(bucket)), [activeBuckets]);
+  const nextCore = useMemo(
+    () => cycleBuckets.find((bucket) => ["lights", "life", "joy", "show"].includes(bucket.id) && bucket.saved < targetOf(bucket)),
+    [cycleBuckets]
+  );
   const showFund = state.buckets.find((bucket) => bucket.id === "show")?.saved || 0;
   const smallJoy = state.buckets.find((bucket) => bucket.id === "joy")?.saved || 0;
   const concertPool = showFund + smallJoy + state.unassigned;
@@ -733,6 +1027,20 @@ export default function BucketSystemApp() {
 
   const updateShows = (fn: (shows: ShowPlan[]) => ShowPlan[]) => {
     setState((prev) => ({ ...prev, shows: fn(prev.shows) }));
+  };
+
+  const patchBucket = (bucketId: string, patch: Partial<Bucket>) => {
+    updateBuckets((buckets) =>
+      buckets.map((bucket) => {
+        if (bucket.id !== bucketId) return bucket;
+        const merged = { ...bucket, ...patch };
+        if (merged.horizon === "long") {
+          merged.dueType = "none";
+          merged.dueDate = "";
+        }
+        return normalizeBucket(merged, bucket);
+      })
+    );
   };
 
   const addToUnassigned = () => {
@@ -776,7 +1084,7 @@ export default function BucketSystemApp() {
   const autoFill = () => {
     let pool = state.unassigned;
     const next = state.buckets.map((bucket) => ({ ...bucket }));
-    const sorted = [...next].sort((a, b) => targetOf(a) - targetOf(b));
+    const sorted = [...next].sort((a, b) => dueWeight(a) - dueWeight(b) || targetOf(a) - targetOf(b));
     const moves: string[] = [];
     for (const bucket of sorted) {
       if (bucket.locked || bucket.archived) continue;
@@ -810,8 +1118,9 @@ export default function BucketSystemApp() {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const parsed = JSON.parse(String(reader.result)) as AppState;
-        setState({ ...INITIAL_STATE, ...parsed });
+        const parsed = JSON.parse(String(reader.result)) as Partial<AppState>;
+        setState(normalizeState(parsed));
+        log("Imported backup file.");
       } catch {
         alert("That backup file could not be read.");
       }
@@ -832,35 +1141,40 @@ export default function BucketSystemApp() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-zinc-950 pb-28 text-zinc-100 md:pb-8">
       <div className="pointer-events-none fixed inset-0">
-        <div className="absolute inset-x-0 top-0 h-[520px] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_48%)]" />
-        <div className="absolute left-[-10%] top-20 h-72 w-72 rounded-full bg-fuchsia-500/8 blur-3xl" />
-        <div className="absolute right-[-10%] top-32 h-72 w-72 rounded-full bg-cyan-500/8 blur-3xl" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.07),transparent_42%)]" />
+        <div className="absolute left-[-12%] top-8 h-80 w-80 rounded-full bg-fuchsia-500/10 blur-3xl" />
+        <div className="absolute right-[-10%] top-16 h-80 w-80 rounded-full bg-cyan-500/10 blur-3xl" />
+        <div className="absolute inset-x-0 bottom-0 h-48 bg-[linear-gradient(to_top,rgba(0,0,0,0.38),transparent)]" />
       </div>
 
       <div className="relative mx-auto max-w-7xl p-4 md:p-8">
         <input ref={fileRef} type="file" accept="application/json" className="hidden" onChange={importBackup} />
 
         <div className="mb-8 grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-          <div className="rounded-[34px] border border-zinc-800 bg-zinc-900/70 p-6 shadow-2xl shadow-black/25 backdrop-blur-sm md:p-8">
-            <div className="mb-3 flex flex-wrap gap-2">
-              <Pill>Bucket system</Pill>
-              <Pill active={state.view === "today"}>Today</Pill>
-              <Pill active={state.view === "board"}>Board</Pill>
-              <Pill active={state.view === "concert"}>Concert</Pill>
-            </div>
-            <h1 className="max-w-3xl text-3xl font-semibold tracking-tight text-zinc-50 md:text-5xl">Let the dollars live somewhere.</h1>
-            <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-400 md:text-base">
-              A calmer shell for the same working logic: buckets, phases, local persistence, concert planning, and a dashboard that feels more like a tool than a prototype.
-            </p>
-            <div className="mt-6 flex flex-wrap gap-2 text-xs text-zinc-300">
-              <Pill>Local save</Pill>
-              <Pill>Import / export</Pill>
-              <Pill>Phases</Pill>
-              <Pill>Show planner</Pill>
-              <Pill>Mobile friendly</Pill>
-            </div>
-            <div className="mt-6 hidden md:block">
-              <ViewTabs value={state.view} onChange={(view) => setState((prev) => ({ ...prev, view }))} />
+          <div className="relative overflow-hidden rounded-[36px] border border-zinc-800 bg-zinc-900/72 p-6 shadow-2xl shadow-black/25 backdrop-blur-sm md:p-8">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_38%)]" />
+            <div className="relative">
+              <div className="mb-3 flex flex-wrap gap-2">
+                <TonePill tone="zinc">Bucket board</TonePill>
+                <TonePill tone="sky">{state.view}</TonePill>
+                <TonePill tone="rose">{cycleBuckets.length} cycle buckets</TonePill>
+                <TonePill tone="emerald">{longBuckets.length} long-term</TonePill>
+              </div>
+              <h1 className="max-w-3xl text-3xl font-semibold tracking-tight text-zinc-50 md:text-5xl">
+                Give the money a shape, then let the pressure separate itself.
+              </h1>
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-400 md:text-base">
+                Same board logic, but clearer horizons. Cycle-specific buckets stay deadline-aware. Long-term buckets stay allowed to be boring.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-2 text-xs text-zinc-300">
+                <TonePill tone="cyan">Local save</TonePill>
+                <TonePill tone="fuchsia">Show planner</TonePill>
+                <TonePill tone="amber">Horizon split</TonePill>
+                <TonePill tone="emerald">Visual refresh</TonePill>
+              </div>
+              <div className="mt-6 hidden md:block">
+                <ViewTabs value={state.view} onChange={(view) => setState((prev) => ({ ...prev, view }))} />
+              </div>
             </div>
           </div>
 
@@ -884,7 +1198,7 @@ export default function BucketSystemApp() {
           }
         >
           <div className="grid gap-4 lg:grid-cols-[1.35fr_1fr_auto]">
-            <div className="rounded-[26px] border border-zinc-800 bg-zinc-950/50 p-4">
+            <div className="rounded-[28px] border border-zinc-800 bg-zinc-950/54 p-4">
               <div className="mb-3 text-sm text-zinc-400">When money lands, let it sit in unassigned first.</div>
               <div className="mb-3 flex flex-wrap gap-2">
                 {PRESETS.map((preset) => (
@@ -903,7 +1217,7 @@ export default function BucketSystemApp() {
               </div>
             </div>
 
-            <div className="grid gap-3 rounded-[26px] border border-zinc-800 bg-zinc-950/50 p-4 sm:grid-cols-2 lg:grid-cols-2">
+            <div className="grid gap-3 rounded-[28px] border border-zinc-800 bg-zinc-950/54 p-4 sm:grid-cols-2 lg:grid-cols-2">
               <ActionButton onClick={autoFill}>Auto-fill</ActionButton>
               <ActionButton onClick={exportBackup}>Export backup</ActionButton>
               <ActionButton onClick={() => fileRef.current?.click()}>Import backup</ActionButton>
@@ -912,7 +1226,7 @@ export default function BucketSystemApp() {
               </ActionButton>
             </div>
 
-            <div className="flex flex-col justify-between gap-3 rounded-[26px] border border-zinc-800 bg-zinc-950/50 p-4">
+            <div className="flex flex-col justify-between gap-3 rounded-[28px] border border-zinc-800 bg-zinc-950/54 p-4">
               <div>
                 <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Last local save</div>
                 <div className="mt-2 text-sm leading-6 text-zinc-300">{formatStamp(state.lastSavedAt)}</div>
@@ -924,19 +1238,20 @@ export default function BucketSystemApp() {
 
         <div className="my-6 grid gap-4 md:grid-cols-4">
           <Stat title="Total bucket targets" value={formatMoney(totalTargets)} sub="Current phase targets." tone="zinc" />
-          <Stat title="Still needed" value={formatMoney(totalNeeded)} sub="Remaining across active buckets." tone="amber" />
+          <Stat title="Cycle bucket count" value={String(cycleBuckets.length)} sub="Deadline-aware / nearer-term buckets." tone="rose" />
+          <Stat title="Long-term count" value={String(longBuckets.length)} sub="Quiet build buckets." tone="emerald" />
           <Stat title="Archived buckets" value={String(archivedBuckets.length)} sub="Retired without disappearing." tone="violet" />
-          <Stat title="How to use" value="Add -> assign -> watch" sub="Buckets are labels. Rails are real." tone="sky" />
         </div>
 
         {state.view === "today" ? (
           <TodayView
             unassigned={state.unassigned}
             totalNeeded={totalNeeded}
+            cycleBuckets={cycleBuckets}
+            longBuckets={longBuckets}
             nextCore={nextCore}
             concertPool={concertPool}
             nextShow={activeShows[0]}
-            buckets={activeBuckets}
           />
         ) : null}
 
@@ -945,7 +1260,16 @@ export default function BucketSystemApp() {
             <SectionShell
               title="Concert mode"
               sub="Show Fund + Small Joy + unassigned = concert-ready pool."
-              right={<ActionButton onClick={() => { updateShows((shows) => [makeShow({ name: "New Show" }), ...shows]); log("Added new show card."); }}>Add show</ActionButton>}
+              right={
+                <ActionButton
+                  onClick={() => {
+                    updateShows((shows) => [makeShow({ name: "New Show" }), ...shows]);
+                    log("Added new show card.");
+                  }}
+                >
+                  Add show
+                </ActionButton>
+              }
             >
               <div className="grid gap-4 md:grid-cols-4">
                 <Stat title="Show Fund" value={formatMoney(showFund)} tone="fuchsia" />
@@ -1015,9 +1339,7 @@ export default function BucketSystemApp() {
                 onDraftChange={(e) => setState((prev) => ({ ...prev, drafts: { ...prev.drafts, [bucket.id]: e.target.value } }))}
                 onAssign={() => assign(bucket.id)}
                 onPullBack={() => pullBack(bucket.id)}
-                onRename={(name) => updateBuckets((buckets) => buckets.map((item) => (item.id === bucket.id ? { ...item, name } : item)))}
-                onToggleLock={() => updateBuckets((buckets) => buckets.map((item) => (item.id === bucket.id ? { ...item, locked: !item.locked } : item)))}
-                onArchiveToggle={() => updateBuckets((buckets) => buckets.map((item) => (item.id === bucket.id ? { ...item, archived: !item.archived } : item)))}
+                onPatch={(patch) => patchBucket(bucket.id, patch)}
                 onMoveUp={() => moveBucket(bucket.id, "up")}
                 onMoveDown={() => moveBucket(bucket.id, "down")}
                 onAdvancePhase={() => {
@@ -1062,11 +1384,11 @@ export default function BucketSystemApp() {
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <div className="text-sm font-semibold text-zinc-50">{bucket.name}</div>
-                        <div className="mt-1 text-sm text-zinc-400">Saved {formatMoney(bucket.saved)} | {labelOf(bucket)}</div>
+                        <div className="mt-1 text-sm text-zinc-400">
+                          Saved {formatMoney(bucket.saved)} | {horizonLabel(bucket.horizon)} | {labelOf(bucket)}
+                        </div>
                       </div>
-                      <ActionButton onClick={() => updateBuckets((buckets) => buckets.map((item) => (item.id === bucket.id ? { ...item, archived: false } : item)))}>
-                        Restore
-                      </ActionButton>
+                      <ActionButton onClick={() => patchBucket(bucket.id, { archived: false })}>Restore</ActionButton>
                     </div>
                   </div>
                 ))}
@@ -1076,7 +1398,7 @@ export default function BucketSystemApp() {
         ) : null}
 
         <div className="mt-8">
-          <SectionShell title="History" sub="Tiny human log, not accountant theater." right={<Pill>{state.history.length} entries</Pill>}>
+          <SectionShell title="History" sub="Tiny human log, not accountant theater." right={<TonePill tone="zinc">{state.history.length} entries</TonePill>}>
             <div className="space-y-2">
               {state.history.length ? (
                 state.history.map((entry) => (
@@ -1086,7 +1408,9 @@ export default function BucketSystemApp() {
                   </div>
                 ))
               ) : (
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4 text-sm text-zinc-400">No history yet. Start by adding money or assigning a dollar.</div>
+                <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4 text-sm text-zinc-400">
+                  No history yet. Start by adding money or assigning a dollar.
+                </div>
               )}
             </div>
           </SectionShell>
