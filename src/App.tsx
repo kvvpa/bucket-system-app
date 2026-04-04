@@ -357,10 +357,34 @@ function ViewTabs({ value, onChange }: { value: ViewMode; onChange: (view: ViewM
 }
 
 function MoneyInput({ value, onChange }: { value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void }) {
+  const [draft, setDraft] = useState(value);
+  const [isFocused, setIsFocused] = useState(false);
+
+  useEffect(() => {
+    if (!isFocused) {
+      setDraft(value);
+    }
+  }, [value, isFocused]);
+
   return (
     <div className="flex items-center gap-2 rounded-2xl border border-zinc-700 bg-zinc-950/90 px-3 py-2.5 text-sm text-zinc-300 shadow-inner shadow-black/20">
       <span className="text-zinc-500">$</span>
-      <input className="w-full bg-transparent text-right text-zinc-100 outline-none placeholder:text-zinc-600" value={value} onChange={onChange} inputMode="decimal" />
+      <input
+        className="w-full bg-transparent text-right text-zinc-100 outline-none placeholder:text-zinc-600"
+        value={isFocused ? draft : value}
+        onFocus={() => {
+          setIsFocused(true);
+          setDraft(value);
+        }}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          onChange(e);
+        }}
+        onBlur={() => {
+          setIsFocused(false);
+        }}
+        inputMode="decimal"
+      />
     </div>
   );
 }
