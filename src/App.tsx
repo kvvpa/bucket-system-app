@@ -258,7 +258,7 @@ function createInitialBuckets(refDate: Date): Bucket[] {
       id: "lights",
       name: "Keep the Lights On",
       tone: "sky",
-      note: "Rent, Mom, David, subscriptions.",
+      note: "Core obligations: rent, Mom, David, subscriptions.",
       saved: 0,
       locked: false,
       archived: false,
@@ -272,7 +272,7 @@ function createInitialBuckets(refDate: Date): Bucket[] {
       id: "repair",
       name: "Make Fidelity Boring Again",
       tone: "rose",
-      note: "Negative-balance cure and cleanup.",
+      note: "Fidelity repair + reserve.",
       saved: 0,
       locked: false,
       archived: false,
@@ -289,7 +289,7 @@ function createInitialBuckets(refDate: Date): Bucket[] {
       id: "file",
       name: "Get File-Ready",
       tone: "amber",
-      note: "Bankruptcy runway / filing costs.",
+      note: "Filing fee + runway.",
       saved: 0,
       locked: false,
       archived: false,
@@ -304,9 +304,9 @@ function createInitialBuckets(refDate: Date): Bucket[] {
     },
     {
       id: "chaos",
-      name: "Don't Get Blindsided",
+      name: "Unexpected Costs",
       tone: "emerald",
-      note: "Tiny anti-chaos pad.",
+      note: "Unexpected costs buffer.",
       saved: 0,
       locked: false,
       archived: false,
@@ -323,7 +323,7 @@ function createInitialBuckets(refDate: Date): Bucket[] {
       id: "life",
       name: "Daily Life",
       tone: "zinc",
-      note: "Food, gas, routine life.",
+      note: "Food, gas, and routine life.",
       saved: 0,
       locked: false,
       archived: false,
@@ -337,7 +337,7 @@ function createInitialBuckets(refDate: Date): Bucket[] {
       id: "joy",
       name: "Small Joy",
       tone: "violet",
-      note: "Softness, not ticket accumulation.",
+      note: "Personal softness / low-stakes spending.",
       saved: 0,
       locked: false,
       archived: false,
@@ -351,7 +351,7 @@ function createInitialBuckets(refDate: Date): Bucket[] {
       id: "show",
       name: "Show Fund",
       tone: "fuchsia",
-      note: "Tickets and show-specific spending.",
+      note: "Tickets, travel, and show spending.",
       saved: 0,
       locked: false,
       archived: false,
@@ -369,7 +369,7 @@ function createInitialBuckets(refDate: Date): Bucket[] {
       id: "future",
       name: "Future You",
       tone: "cyan",
-      note: "Long-term build beyond payroll retirement.",
+      note: "Long-term savings.",
       saved: 0,
       locked: false,
       archived: false,
@@ -788,7 +788,8 @@ function BucketMiniCard({ bucket, refDate }: { bucket: Bucket; refDate: Date }) 
               <TonePill tone={bucket.tone}>{horizonLabel(bucket.horizon)}</TonePill>
               <TonePill tone={due.tone}>{due.band}</TonePill>
             </div>
-            <div className="mt-2 text-xs text-zinc-400">{due.detail}</div>
+            <div className="mt-2 text-xs leading-5 text-zinc-300">{bucket.note}</div>
+            <div className="mt-1 text-xs text-zinc-500">{due.detail}</div>
           </div>
         </div>
         {bucket.saved >= target && target > 0 ? <TonePill active>Ready</TonePill> : null}
@@ -930,7 +931,7 @@ function BucketCard({
               />
             </div>
 
-            <p className="mt-2 text-sm leading-6 text-zinc-400">{bucket.note}</p>
+            <p className="mt-2 text-sm leading-6 text-zinc-300">{bucket.note}</p>
             <div className="mt-2 text-xs text-zinc-500">{due.detail}</div>
 
             <div className="mt-4 grid gap-3 xl:grid-cols-[auto_auto_1fr_190px]">
@@ -1601,7 +1602,7 @@ export default function BucketSystemApp() {
                       <div>
                         <div className="text-sm font-semibold text-zinc-50">{bucket.name}</div>
                         <div className="mt-1 text-sm text-zinc-400">
-                          Saved {formatMoney(bucket.saved)} | {horizonLabel(bucket.horizon)} | {labelOf(bucket)}
+                          {bucket.note} | Saved {formatMoney(bucket.saved)} | {horizonLabel(bucket.horizon)} | {labelOf(bucket)}
                         </div>
                       </div>
                       <ActionButton onClick={() => patchBucket(bucket.id, { archived: false })}>Restore</ActionButton>
