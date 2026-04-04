@@ -22,7 +22,8 @@ const TONES = {
 
 type ViewMode = "today" | "board" | "concert";
 type BucketHorizon = "cycle" | "long";
-type DueType = "none" | "this_cycle" | "next_cycle" | "date";
+type DueMode = "none" | "paycycle" | "date";
+type DueSelectValue = "none" | "current" | "next" | "date";
 
 type Phase = { id: string; label: string; target: number };
 
@@ -37,8 +38,12 @@ type Bucket = {
   phaseIndex: number;
   phases: Phase[];
   horizon: BucketHorizon;
-  dueType: DueType;
-  dueDate?: string;
+  dueMode: DueMode;
+  dueDate: string;
+};
+
+type LegacyBucket = Partial<Bucket> & {
+  dueType?: "none" | "this_cycle" | "next_cycle" | "date";
 };
 
 type ShowPlan = {
@@ -65,165 +70,19 @@ type AppState = {
   lastSavedAt?: string;
 };
 
+function cls(...parts: Array<string | false | null | undefined>) {
+  return parts.filter(Boolean).join(" ");
+}
+
 function makeId(prefix = "id") {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function makePhase(id: string, label: string, target: number): Phase {
-  return { id, label, target };
-}
-
-function makeShow(overrides: Partial<ShowPlan> = {}): ShowPlan {
-  return {
-    id: makeId("show"),
-    name: "",
-    date: "",
-    venue: "",
-    ticket: 75,
-    travel: 20,
-    misc: 0,
-    bought: false,
-    active: true,
-    notes: "",
-    ...overrides,
-  };
-}
-
-const INITIAL_BUCKETS: Bucket[] = [
-  {
-    id: "lights",
-    name: "Keep the Lights On",
-    tone: "sky",
-    note: "Rent, Mom, David, subscriptions.",
-    saved: 0,
-    locked: false,
-    archived: false,
-    phaseIndex: 0,
-    phases: [makePhase("lights-1", "Current cycle", 520.28)],
-    horizon: "cycle",
-    dueType: "this_cycle",
-  },
-  {
-    id: "repair",
-    name: "Make Fidelity Boring Again",
-    tone: "rose",
-    note: "Negative-balance cure and cleanup.",
-    saved: 0,
-    locked: false,
-    archived: false,
-    phaseIndex: 0,
-    phases: [
-      makePhase("repair-1", "Fidelity + cleanup", 549.08),
-      makePhase("repair-2", "Starter reserve", 800),
-    ],
-    horizon: "long",
-    dueType: "none",
-  },
-  {
-    id: "file",
-    name: "Get File-Ready",
-    tone: "amber",
-    note: "Bankruptcy runway / filing costs.",
-    saved: 0,
-    locked: false,
-    archived: false,
-    phaseIndex: 0,
-    phases: [
-      makePhase("file-1", "Filing fee starter", 335),
-      makePhase("file-2", "Runway build", 700),
-    ],
-    horizon: "long",
-    dueType: "none",
-  },
-  {
-    id: "chaos",
-    name: "Don't Get Blindsided",
-    tone: "emerald",
-    note: "Tiny anti-chaos pad.",
-    saved: 0,
-    locked: false,
-    archived: false,
-    phaseIndex: 0,
-    phases: [
-      makePhase("chaos-1", "Micro pad", 300),
-      makePhase("chaos-2", "Boring reserve", 1023.79),
-    ],
-    horizon: "long",
-    dueType: "none",
-  },
-  {
-    id: "life",
-    name: "Daily Life",
-    tone: "zinc",
-    note: "Food, gas, routine life.",
-    saved: 0,
-    locked: false,
-    archived: false,
-    phaseIndex: 0,
-    phases: [makePhase("life-1", "Current float", 150)],
-    horizon: "cycle",
-    dueType: "this_cycle",
-  },
-  {
-    id: "joy",
-    name: "Small Joy",
-    tone: "violet",
-    note: "Softness, not ticket accumulation.",
-    saved: 0,
-    locked: false,
-    archived: false,
-    phaseIndex: 0,
-    phases: [makePhase("joy-1", "Current softness", 25)],
-    horizon: "cycle",
-    dueType: "next_cycle",
-  },
-  {
-    id: "show",
-    name: "Show Fund",
-    tone: "fuchsia",
-    note: "Tickets and show-specific spending.",
-    saved: 0,
-    locked: false,
-    archived: false,
-    phaseIndex: 0,
-    phases: [
-      makePhase("show-1", "Single ticket", 75),
-      makePhase("show-2", "Show + extras", 150),
-      makePhase("show-3", "Next cycle cushion", 225),
-    ],
-    horizon: "cycle",
-    dueType: "next_cycle",
-  },
-  {
-    id: "future",
-    name: "Future You",
-    tone: "cyan",
-    note: "Long-term build beyond payroll retirement.",
-    saved: 0,
-    locked: false,
-    archived: false,
-    phaseIndex: 0,
-    phases: [
-      makePhase("future-1", "Starter build", 100),
-      makePhase("future-2", "Bigger future buffer", 500),
-    ],
-    horizon: "long",
-    dueType: "none",
-  },
-];
-
-const INITIAL_STATE: AppState = {
-  paycheck: 1300,
-  unassigned: 0,
-  view: "today",
-  buckets: INITIAL_BUCKETS,
-  drafts: {},
-  shows: [makeShow({ name: "Example Show", notes: "Delete or rename me." })],
-  history: [],
-};
-
 function parseMoney(value: string | number): number {
-  const n = typeof value === "number" ? value : parseFloat(String(value).replace(/[^0-9.-]/g, ""));
+  const n =
+    typeof value === "number"
+      ? value
+      : parseFloat(String(value).replace(/[^0-9.-]/g, ""));
   return Number.isFinite(n) ? Number(n.toFixed(2)) : 0;
 }
 
@@ -239,8 +98,103 @@ function formatStamp(value?: string): string {
   return value ? new Date(value).toLocaleString() : "Never";
 }
 
+function formatShortDate(date: Date): string {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+  }).format(date);
+}
+
+function normalizeDate(date: Date): Date {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function makeLocalDate(year: number, monthIndex: number, day: number): Date {
+  const next = new Date(year, monthIndex, day);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function dateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseDateKey(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  return makeLocalDate(year, month, day);
+}
+
+function sameDate(a: Date | null, b: Date | null): boolean {
+  if (!a || !b) return false;
+  return dateKey(a) === dateKey(b);
+}
+
+function getNextPayday(ref: Date): Date {
+  const date = normalizeDate(ref);
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const day = date.getDate();
+
+  if (day <= 10) return makeLocalDate(year, month, 10);
+  if (day <= 25) return makeLocalDate(year, month, 25);
+  return makeLocalDate(year, month + 1, 10);
+}
+
+function getFollowingPayday(payday: Date): Date {
+  const date = normalizeDate(payday);
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const day = date.getDate();
+
+  if (day === 10) return makeLocalDate(year, month, 25);
+  return makeLocalDate(year, month + 1, 10);
+}
+
+function getPreviousPayday(ref: Date): Date {
+  const next = getNextPayday(ref);
+  const normalized = normalizeDate(ref);
+
+  if (sameDate(next, normalized)) {
+    if (next.getDate() === 10) return makeLocalDate(next.getFullYear(), next.getMonth() - 1, 25);
+    return makeLocalDate(next.getFullYear(), next.getMonth(), 10);
+  }
+
+  if (next.getDate() === 10) return makeLocalDate(next.getFullYear(), next.getMonth() - 1, 25);
+  return makeLocalDate(next.getFullYear(), next.getMonth(), 10);
+}
+
+function getCycleInfo(ref: Date) {
+  const today = normalizeDate(ref);
+  const nextPayday = getNextPayday(today);
+  const secondPayday = getFollowingPayday(nextPayday);
+  const previousPayday = getPreviousPayday(today);
+  return {
+    today,
+    previousPayday,
+    nextPayday,
+    secondPayday,
+    currentWindowLabel: `${previousPayday.getDate()}th -> ${nextPayday.getDate()}th`,
+  };
+}
+
+function makePhase(id: string, label: string, target: number): Phase {
+  return { id, label, target };
+}
+
 function currentPhase(bucket: Bucket): Phase {
-  return bucket.phases[bucket.phaseIndex] || bucket.phases[0] || { id: "fallback", label: "Main", target: 0 };
+  return (
+    bucket.phases[bucket.phaseIndex] ||
+    bucket.phases[0] || { id: "fallback", label: "Main", target: 0 }
+  );
 }
 
 function targetOf(bucket: Bucket): number {
@@ -263,47 +217,8 @@ function showTotal(show: ShowPlan): number {
   return parseMoney(show.ticket) + parseMoney(show.travel) + parseMoney(show.misc);
 }
 
-function cls(...parts: Array<string | false | null | undefined>) {
-  return parts.filter(Boolean).join(" ");
-}
-
 function horizonLabel(horizon: BucketHorizon): string {
   return horizon === "cycle" ? "Cycle" : "Long-term";
-}
-
-function dueLabel(bucket: Bucket): string {
-  if (bucket.horizon === "long") return "Long arc";
-  if (bucket.dueType === "this_cycle") return "Due this cycle";
-  if (bucket.dueType === "next_cycle") return "Due next cycle";
-  if (bucket.dueType === "date") return bucket.dueDate ? `Due ${bucket.dueDate}` : "Pick a date";
-  return "No deadline";
-}
-
-function dueWeight(bucket: Bucket): number {
-  if (bucket.horizon === "long") return 100;
-  if (bucket.dueType === "this_cycle") return 0;
-  if (bucket.dueType === "next_cycle") return 1;
-  if (bucket.dueType === "date") {
-    if (!bucket.dueDate) return 3;
-    const due = new Date(`${bucket.dueDate}T00:00:00`);
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const diff = Math.floor((due.getTime() - now.getTime()) / 86400000);
-    if (diff < 0) return -1;
-    if (diff <= 7) return 0.5;
-    return 2;
-  }
-  return 3;
-}
-
-function bucketStatus(bucket: Bucket): { label: string; tone: keyof typeof TONES } {
-  const target = targetOf(bucket);
-  if (bucket.saved >= target && target > 0) return { label: "Funded", tone: "emerald" };
-  if (bucket.horizon === "long") return { label: "Building", tone: bucket.tone };
-  if (bucket.dueType === "this_cycle") return { label: "Current cycle", tone: "rose" };
-  if (bucket.dueType === "next_cycle") return { label: "Next cycle", tone: "amber" };
-  if (bucket.dueType === "date") return { label: "Date-bound", tone: "sky" };
-  return { label: "Open", tone: bucket.tone };
 }
 
 function iconForBucket(bucketId: string) {
@@ -320,99 +235,368 @@ function iconForBucket(bucketId: string) {
   return map[bucketId] || "BK";
 }
 
-function normalizeBucket(bucket: Partial<Bucket>, fallback?: Bucket): Bucket {
-  const base = fallback || {
-    id: String(bucket.id || makeId("bucket")),
-    name: "Untitled bucket",
-    tone: "zinc" as keyof typeof TONES,
-    note: "",
-    saved: 0,
-    locked: false,
-    archived: false,
-    phaseIndex: 0,
-    phases: [makePhase("phase-1", "Main", 0)],
-    horizon: "long" as BucketHorizon,
-    dueType: "none" as DueType,
-    dueDate: "",
-  };
-
-  const phases = Array.isArray(bucket.phases) && bucket.phases.length
-    ? bucket.phases.map((phase, index) => ({
-        id: phase.id || makeId(`phase-${index}`),
-        label: phase.label || `Phase ${index + 1}`,
-        target: parseMoney(phase.target || 0),
-      }))
-    : base.phases;
-
-  const safeIndex = Math.min(Math.max(0, Number(bucket.phaseIndex ?? base.phaseIndex ?? 0)), Math.max(0, phases.length - 1));
-  const horizon = bucket.horizon === "cycle" ? "cycle" : bucket.horizon === "long" ? "long" : base.horizon;
-  const dueType: DueType =
-    horizon === "long"
-      ? "none"
-      : bucket.dueType === "this_cycle" || bucket.dueType === "next_cycle" || bucket.dueType === "date" || bucket.dueType === "none"
-      ? bucket.dueType
-      : base.dueType;
-
+function makeShow(overrides: Partial<ShowPlan> = {}): ShowPlan {
   return {
-    ...base,
-    ...bucket,
-    tone: bucket.tone && bucket.tone in TONES ? bucket.tone : base.tone,
-    saved: parseMoney(bucket.saved ?? base.saved),
-    locked: Boolean(bucket.locked ?? base.locked),
-    archived: Boolean(bucket.archived ?? base.archived),
-    phaseIndex: safeIndex,
-    phases,
-    horizon,
-    dueType,
-    dueDate: bucket.dueDate || base.dueDate || "",
+    id: makeId("show"),
+    name: "",
+    date: "",
+    venue: "",
+    ticket: 75,
+    travel: 20,
+    misc: 0,
+    bought: false,
+    active: true,
+    notes: "",
+    ...overrides,
   };
 }
 
-function normalizeState(raw: Partial<AppState>): AppState {
-  const defaultsById = Object.fromEntries(INITIAL_BUCKETS.map((bucket) => [bucket.id, bucket]));
-  const incoming = Array.isArray(raw.buckets) ? raw.buckets : [];
-  const seen = new Set<string>();
+function createInitialBuckets(refDate: Date): Bucket[] {
+  const cycle = getCycleInfo(refDate);
+  return [
+    {
+      id: "lights",
+      name: "Keep the Lights On",
+      tone: "sky",
+      note: "Rent, Mom, David, subscriptions.",
+      saved: 0,
+      locked: false,
+      archived: false,
+      phaseIndex: 0,
+      phases: [makePhase("lights-1", "Current cycle", 520.28)],
+      horizon: "cycle",
+      dueMode: "paycycle",
+      dueDate: dateKey(cycle.nextPayday),
+    },
+    {
+      id: "repair",
+      name: "Make Fidelity Boring Again",
+      tone: "rose",
+      note: "Negative-balance cure and cleanup.",
+      saved: 0,
+      locked: false,
+      archived: false,
+      phaseIndex: 0,
+      phases: [
+        makePhase("repair-1", "Fidelity + cleanup", 549.08),
+        makePhase("repair-2", "Starter reserve", 800),
+      ],
+      horizon: "long",
+      dueMode: "none",
+      dueDate: "",
+    },
+    {
+      id: "file",
+      name: "Get File-Ready",
+      tone: "amber",
+      note: "Bankruptcy runway / filing costs.",
+      saved: 0,
+      locked: false,
+      archived: false,
+      phaseIndex: 0,
+      phases: [
+        makePhase("file-1", "Filing fee starter", 335),
+        makePhase("file-2", "Runway build", 700),
+      ],
+      horizon: "long",
+      dueMode: "none",
+      dueDate: "",
+    },
+    {
+      id: "chaos",
+      name: "Don't Get Blindsided",
+      tone: "emerald",
+      note: "Tiny anti-chaos pad.",
+      saved: 0,
+      locked: false,
+      archived: false,
+      phaseIndex: 0,
+      phases: [
+        makePhase("chaos-1", "Micro pad", 300),
+        makePhase("chaos-2", "Boring reserve", 1023.79),
+      ],
+      horizon: "long",
+      dueMode: "none",
+      dueDate: "",
+    },
+    {
+      id: "life",
+      name: "Daily Life",
+      tone: "zinc",
+      note: "Food, gas, routine life.",
+      saved: 0,
+      locked: false,
+      archived: false,
+      phaseIndex: 0,
+      phases: [makePhase("life-1", "Current float", 150)],
+      horizon: "cycle",
+      dueMode: "paycycle",
+      dueDate: dateKey(cycle.nextPayday),
+    },
+    {
+      id: "joy",
+      name: "Small Joy",
+      tone: "violet",
+      note: "Softness, not ticket accumulation.",
+      saved: 0,
+      locked: false,
+      archived: false,
+      phaseIndex: 0,
+      phases: [makePhase("joy-1", "Current softness", 25)],
+      horizon: "cycle",
+      dueMode: "paycycle",
+      dueDate: dateKey(cycle.secondPayday),
+    },
+    {
+      id: "show",
+      name: "Show Fund",
+      tone: "fuchsia",
+      note: "Tickets and show-specific spending.",
+      saved: 0,
+      locked: false,
+      archived: false,
+      phaseIndex: 0,
+      phases: [
+        makePhase("show-1", "Single ticket", 75),
+        makePhase("show-2", "Show + extras", 150),
+        makePhase("show-3", "Next cycle cushion", 225),
+      ],
+      horizon: "cycle",
+      dueMode: "paycycle",
+      dueDate: dateKey(cycle.secondPayday),
+    },
+    {
+      id: "future",
+      name: "Future You",
+      tone: "cyan",
+      note: "Long-term build beyond payroll retirement.",
+      saved: 0,
+      locked: false,
+      archived: false,
+      phaseIndex: 0,
+      phases: [
+        makePhase("future-1", "Starter build", 100),
+        makePhase("future-2", "Bigger future buffer", 500),
+      ],
+      horizon: "long",
+      dueMode: "none",
+      dueDate: "",
+    },
+  ];
+}
 
-  const mergedIncoming = incoming.map((bucket) => {
-    const fallback = bucket.id && defaultsById[String(bucket.id)] ? defaultsById[String(bucket.id)] : undefined;
-    const normalized = normalizeBucket(bucket, fallback);
-    seen.add(normalized.id);
-    return normalized;
-  });
+function createInitialState(refDate: Date): AppState {
+  return {
+    paycheck: 1300,
+    unassigned: 0,
+    view: "today",
+    buckets: createInitialBuckets(refDate),
+    drafts: {},
+    shows: [makeShow({ name: "Example Show", notes: "Delete or rename me." })],
+    history: [],
+  };
+}
 
-  const missingDefaults = INITIAL_BUCKETS.filter((bucket) => !seen.has(bucket.id)).map((bucket) => normalizeBucket(bucket, bucket));
+function normalizeBucket(raw: LegacyBucket, fallback: Bucket, refDate: Date): Bucket {
+  const phases =
+    Array.isArray(raw.phases) && raw.phases.length
+      ? raw.phases.map((phase, index) => ({
+          id: phase.id || makeId(`phase-${index}`),
+          label: phase.label || `Phase ${index + 1}`,
+          target: parseMoney(phase.target || 0),
+        }))
+      : fallback.phases;
+
+  const horizon: BucketHorizon =
+    raw.horizon === "cycle" || raw.horizon === "long"
+      ? raw.horizon
+      : fallback.horizon;
+
+  let dueMode: DueMode = raw.dueMode === "paycycle" || raw.dueMode === "date" || raw.dueMode === "none"
+    ? raw.dueMode
+    : fallback.dueMode;
+
+  let dueDate = typeof raw.dueDate === "string" ? raw.dueDate : fallback.dueDate;
+
+  if ((raw as LegacyBucket).dueType) {
+    const cycle = getCycleInfo(refDate);
+    if ((raw as LegacyBucket).dueType === "this_cycle") {
+      dueMode = "paycycle";
+      dueDate = dateKey(cycle.nextPayday);
+    } else if ((raw as LegacyBucket).dueType === "next_cycle") {
+      dueMode = "paycycle";
+      dueDate = dateKey(cycle.secondPayday);
+    } else if ((raw as LegacyBucket).dueType === "date") {
+      dueMode = "date";
+      dueDate = typeof raw.dueDate === "string" ? raw.dueDate : "";
+    } else if ((raw as LegacyBucket).dueType === "none") {
+      dueMode = "none";
+      dueDate = "";
+    }
+  }
+
+  if (horizon === "long") {
+    dueMode = "none";
+    dueDate = "";
+  } else if (dueMode === "paycycle" && !dueDate) {
+    dueDate = fallback.dueDate || dateKey(getCycleInfo(refDate).nextPayday);
+  } else if (dueMode === "date" && !dueDate) {
+    dueDate = dateKey(getCycleInfo(refDate).nextPayday);
+  }
+
+  const phaseIndex = Math.min(
+    Math.max(0, Number(raw.phaseIndex ?? fallback.phaseIndex ?? 0)),
+    Math.max(0, phases.length - 1)
+  );
 
   return {
-    paycheck: parseMoney(raw.paycheck ?? INITIAL_STATE.paycheck),
-    unassigned: parseMoney(raw.unassigned ?? INITIAL_STATE.unassigned),
-    view: raw.view === "today" || raw.view === "board" || raw.view === "concert" ? raw.view : INITIAL_STATE.view,
-    buckets: [...mergedIncoming, ...missingDefaults],
+    id: raw.id || fallback.id,
+    name: raw.name || fallback.name,
+    tone: raw.tone && raw.tone in TONES ? raw.tone : fallback.tone,
+    note: raw.note ?? fallback.note,
+    saved: parseMoney(raw.saved ?? fallback.saved),
+    locked: Boolean(raw.locked ?? fallback.locked),
+    archived: Boolean(raw.archived ?? fallback.archived),
+    phaseIndex,
+    phases,
+    horizon,
+    dueMode,
+    dueDate,
+  };
+}
+
+function normalizeState(raw: Partial<AppState>, refDate: Date): AppState {
+  const initial = createInitialState(refDate);
+  const defaultsById = Object.fromEntries(initial.buckets.map((bucket) => [bucket.id, bucket]));
+  const incoming = Array.isArray(raw.buckets) ? raw.buckets : [];
+  const buckets = incoming.map((bucket) => {
+    const fallback = bucket.id && defaultsById[String(bucket.id)] ? defaultsById[String(bucket.id)] : initial.buckets[0];
+    return normalizeBucket(bucket as LegacyBucket, fallback, refDate);
+  });
+
+  for (const defaultBucket of initial.buckets) {
+    if (!buckets.find((bucket) => bucket.id === defaultBucket.id)) {
+      buckets.push(defaultBucket);
+    }
+  }
+
+  return {
+    paycheck: parseMoney(raw.paycheck ?? initial.paycheck),
+    unassigned: parseMoney(raw.unassigned ?? initial.unassigned),
+    view:
+      raw.view === "today" || raw.view === "board" || raw.view === "concert"
+        ? raw.view
+        : initial.view,
+    buckets,
     drafts: raw.drafts && typeof raw.drafts === "object" ? raw.drafts : {},
-    shows: Array.isArray(raw.shows) && raw.shows.length
-      ? raw.shows.map((show) => ({
-          ...makeShow(),
-          ...show,
-          ticket: parseMoney(show.ticket ?? 0),
-          travel: parseMoney(show.travel ?? 0),
-          misc: parseMoney(show.misc ?? 0),
-          bought: Boolean(show.bought),
-          active: Boolean(show.active ?? true),
-        }))
-      : INITIAL_STATE.shows,
-    history: Array.isArray(raw.history)
-      ? raw.history.map((entry) => ({
-          id: entry.id || makeId("log"),
-          text: entry.text || "",
-          ts: entry.ts || new Date().toISOString(),
-        }))
-      : [],
+    shows:
+      Array.isArray(raw.shows) && raw.shows.length
+        ? raw.shows.map((show) => ({
+            ...makeShow(),
+            ...show,
+            ticket: parseMoney(show.ticket ?? 0),
+            travel: parseMoney(show.travel ?? 0),
+            misc: parseMoney(show.misc ?? 0),
+            bought: Boolean(show.bought),
+            active: Boolean(show.active ?? true),
+          }))
+        : initial.shows,
+    history:
+      Array.isArray(raw.history)
+        ? raw.history.map((entry) => ({
+            id: entry.id || makeId("log"),
+            text: entry.text || "",
+            ts: entry.ts || new Date().toISOString(),
+          }))
+        : [],
     lastSavedAt: raw.lastSavedAt,
   };
 }
 
+function describeBucketDue(bucket: Bucket, refDate: Date) {
+  if (bucket.horizon === "long") {
+    return {
+      band: "Long-term",
+      detail: "Long arc",
+      weight: 100,
+      tone: "emerald" as keyof typeof TONES,
+    };
+  }
+
+  if (bucket.dueMode === "none") {
+    return {
+      band: "Open",
+      detail: "No deadline",
+      weight: 20,
+      tone: "zinc" as keyof typeof TONES,
+    };
+  }
+
+  const cycle = getCycleInfo(refDate);
+  const due = parseDateKey(bucket.dueDate);
+  if (!due) {
+    return {
+      band: "Open",
+      detail: "Pick a date",
+      weight: 20,
+      tone: "amber" as keyof typeof TONES,
+    };
+  }
+
+  if (due < cycle.today) {
+    return {
+      band: "Past due",
+      detail: `Was due ${formatShortDate(due)}`,
+      weight: -1,
+      tone: "rose" as keyof typeof TONES,
+    };
+  }
+
+  if (due <= cycle.nextPayday) {
+    return {
+      band: "Current cycle",
+      detail: `By ${formatShortDate(due)}`,
+      weight: 0,
+      tone: "rose" as keyof typeof TONES,
+    };
+  }
+
+  if (due <= cycle.secondPayday) {
+    return {
+      band: "Next cycle",
+      detail: `By ${formatShortDate(due)}`,
+      weight: 1,
+      tone: "amber" as keyof typeof TONES,
+    };
+  }
+
+  return {
+    band: "Later",
+    detail: `By ${formatShortDate(due)}`,
+    weight: 2,
+    tone: "sky" as keyof typeof TONES,
+  };
+}
+
+function getDueSelectValue(bucket: Bucket, refDate: Date): DueSelectValue {
+  if (bucket.horizon === "long" || bucket.dueMode === "none") return "none";
+  if (bucket.dueMode === "date") return "date";
+
+  const cycle = getCycleInfo(refDate);
+  const due = parseDateKey(bucket.dueDate);
+  if (sameDate(due, cycle.nextPayday)) return "current";
+  if (sameDate(due, cycle.secondPayday)) return "next";
+  return "date";
+}
+
 function BucketAvatar({ bucket }: { bucket: Bucket }) {
   return (
-    <div className={cls("relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl border text-[10px] font-semibold tracking-[0.22em] text-zinc-50", TONES[bucket.tone])}>
+    <div
+      className={cls(
+        "relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl border text-[10px] font-semibold tracking-[0.22em] text-zinc-50",
+        TONES[bucket.tone]
+      )}
+    >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.14),transparent_65%)]" />
       <div className="absolute inset-x-2 bottom-2 h-[2px] rounded-full bg-white/20" />
       <div className="absolute inset-x-3 bottom-5 h-[2px] rounded-full bg-white/10" />
@@ -564,9 +748,7 @@ function MoneyInput({
   const [isFocused, setIsFocused] = useState(false);
 
   useEffect(() => {
-    if (!isFocused) {
-      setDraft(value);
-    }
+    if (!isFocused) setDraft(value);
   }, [value, isFocused]);
 
   return (
@@ -590,10 +772,10 @@ function MoneyInput({
   );
 }
 
-function BucketMiniCard({ bucket }: { bucket: Bucket }) {
+function BucketMiniCard({ bucket, refDate }: { bucket: Bucket; refDate: Date }) {
   const target = targetOf(bucket);
   const pct = progress(bucket.saved, target);
-  const status = bucketStatus(bucket);
+  const due = describeBucketDue(bucket, refDate);
 
   return (
     <div className={cls("rounded-[26px] border p-4 shadow-xl shadow-black/10", TONES[bucket.tone])}>
@@ -604,8 +786,9 @@ function BucketMiniCard({ bucket }: { bucket: Bucket }) {
             <div className="text-sm font-semibold text-zinc-50">{bucket.name}</div>
             <div className="mt-1 flex flex-wrap gap-1.5">
               <TonePill tone={bucket.tone}>{horizonLabel(bucket.horizon)}</TonePill>
-              <TonePill tone={status.tone}>{dueLabel(bucket)}</TonePill>
+              <TonePill tone={due.tone}>{due.band}</TonePill>
             </div>
+            <div className="mt-2 text-xs text-zinc-400">{due.detail}</div>
           </div>
         </div>
         {bucket.saved >= target && target > 0 ? <TonePill active>Ready</TonePill> : null}
@@ -622,6 +805,7 @@ function BucketMiniCard({ bucket }: { bucket: Bucket }) {
 }
 
 function TodayView({
+  refDate,
   unassigned,
   totalNeeded,
   cycleBuckets,
@@ -630,6 +814,7 @@ function TodayView({
   concertPool,
   nextShow,
 }: {
+  refDate: Date;
   unassigned: number;
   totalNeeded: number;
   cycleBuckets: Bucket[];
@@ -638,27 +823,18 @@ function TodayView({
   concertPool: number;
   nextShow?: ShowPlan;
 }) {
+  const cycle = getCycleInfo(refDate);
   const cycleNeeded = cycleBuckets.reduce((sum, bucket) => sum + Math.max(0, targetOf(bucket) - bucket.saved), 0);
   const longNeeded = longBuckets.reduce((sum, bucket) => sum + Math.max(0, targetOf(bucket) - bucket.saved), 0);
 
   return (
     <div className="mb-6 space-y-4">
-      <SectionShell title="Today view" sub="Cycle pressure separated from long-arc building so the board feels calmer.">
+      <SectionShell title="Today view" sub="Real cycle dates drive the pressure map now. Deadlines move automatically; dollars do not.">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Stat title="Unassigned now" value={formatMoney(unassigned)} sub="Money waiting for a job." tone="cyan" />
-          <Stat
-            title="Next cycle pressure"
-            value={formatMoney(cycleNeeded)}
-            sub={nextCore ? `${nextCore.name} is still on deck.` : "No cycle bucket is screaming right now."}
-            tone="rose"
-          />
-          <Stat
-            title="Concert-ready pool"
-            value={formatMoney(concertPool)}
-            sub={nextShow ? `${nextShow.name || "Next show"} needs ${formatMoney(showNeeded(nextShow))}.` : "No active show card right now."}
-            tone="fuchsia"
-          />
-          <Stat title="Long-arc build" value={formatMoney(longNeeded)} sub={`Total still needed across long-term buckets. ${formatMoney(totalNeeded)} overall.`} tone="emerald" />
+          <Stat title="Current window" value={cycle.currentWindowLabel} sub={`Next payday ${formatShortDate(cycle.nextPayday)}`} tone="rose" />
+          <Stat title="Unassigned now" value={formatMoney(unassigned)} sub="Real received money waiting for a job." tone="cyan" />
+          <Stat title="Current cycle pressure" value={formatMoney(cycleNeeded)} sub={nextCore ? `${nextCore.name} is still on deck.` : "Nothing current-cycle is screaming right now."} tone="amber" />
+          <Stat title="Long-arc build" value={formatMoney(longNeeded)} sub={`${formatMoney(totalNeeded)} still needed overall.`} tone="emerald" />
         </div>
       </SectionShell>
 
@@ -666,25 +842,34 @@ function TodayView({
         <SectionShell title="Cycle-specific buckets" sub="Closer to deadlines, pay-cycle pressure, or near-term choices.">
           <div className="grid gap-3 md:grid-cols-2">
             {cycleBuckets.map((bucket) => (
-              <BucketMiniCard key={bucket.id} bucket={bucket} />
+              <BucketMiniCard key={bucket.id} bucket={bucket} refDate={refDate} />
             ))}
           </div>
         </SectionShell>
 
-        <SectionShell title="Long-term build" sub="Not everything needs a countdown. These are meant to quietly accumulate.">
+        <SectionShell title="Long-term build" sub="Not everything needs a countdown. These are allowed to accumulate quietly.">
           <div className="grid gap-3 md:grid-cols-2">
             {longBuckets.map((bucket) => (
-              <BucketMiniCard key={bucket.id} bucket={bucket} />
+              <BucketMiniCard key={bucket.id} bucket={bucket} refDate={refDate} />
             ))}
           </div>
         </SectionShell>
       </div>
+
+      <SectionShell title="Concert pulse" sub="Separate from the cycle logic, but still grounded in real money.">
+        <div className="grid gap-4 md:grid-cols-3">
+          <Stat title="Concert-ready pool" value={formatMoney(concertPool)} sub={nextShow ? `${nextShow.name || "Next show"} needs ${formatMoney(showNeeded(nextShow))}.` : "No active show card right now."} tone="fuchsia" />
+          <Stat title="Next payday" value={formatShortDate(cycle.nextPayday)} sub="Current-cycle buckets are due by this boundary." tone="sky" />
+          <Stat title="Following payday" value={formatShortDate(cycle.secondPayday)} sub="Next-cycle buckets roll into current after the first boundary passes." tone="violet" />
+        </div>
+      </SectionShell>
     </div>
   );
 }
 
 function BucketCard({
   bucket,
+  refDate,
   draftValue,
   onDraftChange,
   onAssign,
@@ -699,6 +884,7 @@ function BucketCard({
   disableMoveDown,
 }: {
   bucket: Bucket;
+  refDate: Date;
   draftValue: string;
   onDraftChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onAssign: () => void;
@@ -717,7 +903,8 @@ function BucketCard({
   const pct = progress(bucket.saved, target);
   const funded = bucket.saved >= target && target > 0;
   const canAdvance = bucket.phaseIndex < bucket.phases.length - 1;
-  const status = bucketStatus(bucket);
+  const due = describeBucketDue(bucket, refDate);
+  const dueSelect = getDueSelectValue(bucket, refDate);
 
   return (
     <div className={cls("relative overflow-hidden rounded-[32px] border p-5 shadow-2xl shadow-black/15 backdrop-blur-sm", TONES[bucket.tone])}>
@@ -728,7 +915,7 @@ function BucketCard({
             <div className="mb-3 flex flex-wrap gap-2">
               <TonePill tone={bucket.tone}>{labelOf(bucket)}</TonePill>
               <TonePill tone={bucket.tone}>{horizonLabel(bucket.horizon)}</TonePill>
-              <TonePill tone={status.tone}>{dueLabel(bucket)}</TonePill>
+              <TonePill tone={due.tone}>{due.band}</TonePill>
               {funded ? <TonePill active>Funded</TonePill> : null}
               {bucket.locked ? <TonePill tone="zinc">Locked</TonePill> : null}
               {bucket.archived ? <TonePill tone="zinc">Archived</TonePill> : null}
@@ -742,29 +929,33 @@ function BucketCard({
                 className="w-full bg-transparent text-lg font-semibold tracking-tight text-zinc-50 outline-none"
               />
             </div>
-            <p className="mt-2 text-sm leading-6 text-zinc-400">{bucket.note}</p>
 
-            <div className="mt-4 grid gap-3 xl:grid-cols-[auto_auto_1fr_160px]">
+            <p className="mt-2 text-sm leading-6 text-zinc-400">{bucket.note}</p>
+            <div className="mt-2 text-xs text-zinc-500">{due.detail}</div>
+
+            <div className="mt-4 grid gap-3 xl:grid-cols-[auto_auto_1fr_190px]">
               <div className="rounded-2xl border border-zinc-800/90 bg-zinc-950/70 p-3">
                 <div className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Saved</div>
                 <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-50">{formatMoney(bucket.saved)}</div>
               </div>
+
               <div className="rounded-2xl border border-zinc-800/90 bg-zinc-950/70 p-3">
                 <div className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Target</div>
                 <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-50">{formatMoney(target)}</div>
               </div>
+
               <div className="rounded-2xl border border-zinc-800/90 bg-zinc-950/70 p-3">
                 <div className="mb-2 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Horizon</div>
                 <div className="flex flex-wrap gap-2">
                   <ActionButton
-                    onClick={() => onPatch({ horizon: "cycle", dueType: bucket.horizon === "cycle" ? bucket.dueType : "this_cycle" })}
+                    onClick={() => onPatch({ horizon: "cycle", dueMode: bucket.horizon === "cycle" ? bucket.dueMode : "paycycle", dueDate: bucket.horizon === "cycle" ? bucket.dueDate : dateKey(getCycleInfo(refDate).nextPayday) })}
                     variant={bucket.horizon === "cycle" ? "primary" : "secondary"}
                     className="px-3 py-2 text-xs"
                   >
                     Cycle
                   </ActionButton>
                   <ActionButton
-                    onClick={() => onPatch({ horizon: "long", dueType: "none", dueDate: "" })}
+                    onClick={() => onPatch({ horizon: "long", dueMode: "none", dueDate: "" })}
                     variant={bucket.horizon === "long" ? "primary" : "secondary"}
                     className="px-3 py-2 text-xs"
                   >
@@ -778,23 +969,27 @@ function BucketCard({
                 {bucket.horizon === "cycle" ? (
                   <div className="space-y-2">
                     <select
-                      value={bucket.dueType}
+                      value={dueSelect}
                       onChange={(e) => {
-                        const nextDueType = e.target.value as DueType;
-                        onPatch({ dueType: nextDueType, dueDate: nextDueType === "date" ? bucket.dueDate || "" : "" });
+                        const cycle = getCycleInfo(refDate);
+                        const nextValue = e.target.value as DueSelectValue;
+                        if (nextValue === "none") onPatch({ dueMode: "none", dueDate: "" });
+                        if (nextValue === "current") onPatch({ dueMode: "paycycle", dueDate: dateKey(cycle.nextPayday) });
+                        if (nextValue === "next") onPatch({ dueMode: "paycycle", dueDate: dateKey(cycle.secondPayday) });
+                        if (nextValue === "date") onPatch({ dueMode: "date", dueDate: bucket.dueDate || dateKey(cycle.nextPayday) });
                       }}
                       className="w-full rounded-xl border border-zinc-700 bg-zinc-950/80 px-3 py-2 text-sm text-zinc-100 outline-none"
                     >
                       <option value="none">No deadline</option>
-                      <option value="this_cycle">This cycle</option>
-                      <option value="next_cycle">Next cycle</option>
+                      <option value="current">Current cycle</option>
+                      <option value="next">Next cycle</option>
                       <option value="date">Specific date</option>
                     </select>
-                    {bucket.dueType === "date" ? (
+                    {(dueSelect === "date" || bucket.dueMode === "date") ? (
                       <input
                         type="date"
-                        value={bucket.dueDate || ""}
-                        onChange={(e) => onPatch({ dueDate: e.target.value })}
+                        value={bucket.dueDate}
+                        onChange={(e) => onPatch({ dueMode: "date", dueDate: e.target.value })}
                         className="w-full rounded-xl border border-zinc-700 bg-zinc-950/80 px-3 py-2 text-sm text-zinc-100 outline-none"
                       />
                     ) : null}
@@ -961,15 +1156,15 @@ function ShowCard({
 }
 
 export default function BucketSystemApp() {
-  const [state, setState] = useState<AppState>(INITIAL_STATE);
+  const [state, setState] = useState<AppState>(() => createInitialState(new Date()));
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return;
-      const parsed = JSON.parse(raw) as Partial<AppState>;
-      setState(normalizeState(parsed));
+      setState(normalizeState(JSON.parse(raw) as Partial<AppState>, new Date()));
     } catch {
       // ignore bad local storage
     }
@@ -980,14 +1175,28 @@ export default function BucketSystemApp() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, lastSavedAt: ts }));
   }, [state]);
 
+  useEffect(() => {
+    const tick = () => setNow(new Date());
+    const timer = window.setInterval(tick, 60000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const cycleInfo = useMemo(() => getCycleInfo(now), [now]);
+
   const activeBuckets = useMemo(() => state.buckets.filter((bucket) => !bucket.archived), [state.buckets]);
+
   const cycleBuckets = useMemo(
     () =>
       activeBuckets
         .filter((bucket) => bucket.horizon === "cycle")
-        .sort((a, b) => dueWeight(a) - dueWeight(b) || targetOf(a) - targetOf(b)),
-    [activeBuckets]
+        .sort((a, b) => {
+          const da = describeBucketDue(a, now);
+          const db = describeBucketDue(b, now);
+          return da.weight - db.weight || targetOf(a) - targetOf(b);
+        }),
+    [activeBuckets, now]
   );
+
   const longBuckets = useMemo(
     () =>
       activeBuckets
@@ -995,19 +1204,28 @@ export default function BucketSystemApp() {
         .sort((a, b) => targetOf(a) - targetOf(b)),
     [activeBuckets]
   );
+
   const visibleBuckets = useMemo(
-    () => state.buckets.filter((bucket) => !bucket.archived && (state.view === "concert" ? ["joy", "show"].includes(bucket.id) : true)),
+    () =>
+      state.buckets.filter(
+        (bucket) =>
+          !bucket.archived &&
+          (state.view === "concert" ? ["joy", "show"].includes(bucket.id) : true)
+      ),
     [state.buckets, state.view]
   );
+
   const archivedBuckets = useMemo(() => state.buckets.filter((bucket) => bucket.archived), [state.buckets]);
   const totalSaved = useMemo(() => state.buckets.reduce((sum, bucket) => sum + bucket.saved, 0), [state.buckets]);
   const totalTargets = useMemo(() => state.buckets.reduce((sum, bucket) => sum + targetOf(bucket), 0), [state.buckets]);
   const totalNeeded = useMemo(() => state.buckets.reduce((sum, bucket) => sum + Math.max(0, targetOf(bucket) - bucket.saved), 0), [state.buckets]);
   const fundedCount = useMemo(() => state.buckets.filter((bucket) => bucket.saved >= targetOf(bucket) && targetOf(bucket) > 0).length, [state.buckets]);
+
   const nextCore = useMemo(
-    () => cycleBuckets.find((bucket) => ["lights", "life", "joy", "show"].includes(bucket.id) && bucket.saved < targetOf(bucket)),
+    () => cycleBuckets.find((bucket) => bucket.saved < targetOf(bucket)),
     [cycleBuckets]
   );
+
   const showFund = state.buckets.find((bucket) => bucket.id === "show")?.saved || 0;
   const smallJoy = state.buckets.find((bucket) => bucket.id === "joy")?.saved || 0;
   const concertPool = showFund + smallJoy + state.unassigned;
@@ -1033,12 +1251,12 @@ export default function BucketSystemApp() {
     updateBuckets((buckets) =>
       buckets.map((bucket) => {
         if (bucket.id !== bucketId) return bucket;
-        const merged = { ...bucket, ...patch };
-        if (merged.horizon === "long") {
-          merged.dueType = "none";
-          merged.dueDate = "";
+        const next = { ...bucket, ...patch };
+        if (next.horizon === "long") {
+          next.dueMode = "none";
+          next.dueDate = "";
         }
-        return normalizeBucket(merged, bucket);
+        return next;
       })
     );
   };
@@ -1046,7 +1264,11 @@ export default function BucketSystemApp() {
   const addToUnassigned = () => {
     const amount = parseMoney(state.paycheck);
     if (amount <= 0) return;
-    setState((prev) => ({ ...prev, unassigned: parseMoney(prev.unassigned + amount), paycheck: 0 }));
+    setState((prev) => ({
+      ...prev,
+      unassigned: parseMoney(prev.unassigned + amount),
+      paycheck: 0,
+    }));
     log(`Added ${formatMoney(amount)} to unassigned.`);
   };
 
@@ -1060,7 +1282,9 @@ export default function BucketSystemApp() {
       ...prev,
       unassigned: parseMoney(prev.unassigned - usable),
       drafts: { ...prev.drafts, [bucketId]: "" },
-      buckets: prev.buckets.map((bucket) => (bucket.id === bucketId ? { ...bucket, saved: parseMoney(bucket.saved + usable) } : bucket)),
+      buckets: prev.buckets.map((bucket) =>
+        bucket.id === bucketId ? { ...bucket, saved: parseMoney(bucket.saved + usable) } : bucket
+      ),
     }));
     log(`Assigned ${formatMoney(usable)} to ${bucketName}.`);
   };
@@ -1076,16 +1300,23 @@ export default function BucketSystemApp() {
       ...prev,
       unassigned: parseMoney(prev.unassigned + usable),
       drafts: { ...prev.drafts, [bucketId]: "" },
-      buckets: prev.buckets.map((item) => (item.id === bucketId ? { ...item, saved: parseMoney(item.saved - usable) } : item)),
+      buckets: prev.buckets.map((item) =>
+        item.id === bucketId ? { ...item, saved: parseMoney(item.saved - usable) } : item
+      ),
     }));
     log(`Pulled back ${formatMoney(usable)} from ${bucket.name}.`);
   };
 
   const autoFill = () => {
     let pool = state.unassigned;
-    const next = state.buckets.map((bucket) => ({ ...bucket }));
-    const sorted = [...next].sort((a, b) => dueWeight(a) - dueWeight(b) || targetOf(a) - targetOf(b));
+    const nextBuckets = state.buckets.map((bucket) => ({ ...bucket }));
+    const sorted = [...nextBuckets].sort((a, b) => {
+      const da = describeBucketDue(a, now);
+      const db = describeBucketDue(b, now);
+      return da.weight - db.weight || targetOf(a) - targetOf(b);
+    });
     const moves: string[] = [];
+
     for (const bucket of sorted) {
       if (bucket.locked || bucket.archived) continue;
       const needed = Math.max(0, targetOf(bucket) - bucket.saved);
@@ -1095,7 +1326,8 @@ export default function BucketSystemApp() {
       pool = parseMoney(pool - add);
       moves.push(`${formatMoney(add)} -> ${bucket.name}`);
     }
-    setState((prev) => ({ ...prev, unassigned: pool, buckets: next }));
+
+    setState((prev) => ({ ...prev, unassigned: pool, buckets: nextBuckets }));
     if (moves.length) log(`Auto-fill: ${moves.join(", ")}.`);
   };
 
@@ -1119,7 +1351,7 @@ export default function BucketSystemApp() {
     reader.onload = () => {
       try {
         const parsed = JSON.parse(String(reader.result)) as Partial<AppState>;
-        setState(normalizeState(parsed));
+        setState(normalizeState(parsed, new Date()));
         log("Imported backup file.");
       } catch {
         alert("That backup file could not be read.");
@@ -1157,20 +1389,20 @@ export default function BucketSystemApp() {
               <div className="mb-3 flex flex-wrap gap-2">
                 <TonePill tone="zinc">Bucket board</TonePill>
                 <TonePill tone="sky">{state.view}</TonePill>
-                <TonePill tone="rose">{cycleBuckets.length} cycle buckets</TonePill>
-                <TonePill tone="emerald">{longBuckets.length} long-term</TonePill>
+                <TonePill tone="rose">{cycleInfo.currentWindowLabel}</TonePill>
+                <TonePill tone="amber">Next {formatShortDate(cycleInfo.nextPayday)}</TonePill>
               </div>
               <h1 className="max-w-3xl text-3xl font-semibold tracking-tight text-zinc-50 md:text-5xl">
-                Give the money a shape, then let the pressure separate itself.
+                Real cycle dates, real money, less ambiguity.
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-400 md:text-base">
-                Same board logic, but clearer horizons. Cycle-specific buckets stay deadline-aware. Long-term buckets stay allowed to be boring.
+                Targets can exist before payday. Assigned dollars should not. Current-cycle and next-cycle pressure now follow your actual 10th / 25th rollover automatically.
               </p>
               <div className="mt-6 flex flex-wrap gap-2 text-xs text-zinc-300">
                 <TonePill tone="cyan">Local save</TonePill>
                 <TonePill tone="fuchsia">Show planner</TonePill>
-                <TonePill tone="amber">Horizon split</TonePill>
-                <TonePill tone="emerald">Visual refresh</TonePill>
+                <TonePill tone="amber">10th / 25th aware</TonePill>
+                <TonePill tone="emerald">Live allocation board</TonePill>
               </div>
               <div className="mt-6 hidden md:block">
                 <ViewTabs value={state.view} onChange={(view) => setState((prev) => ({ ...prev, view }))} />
@@ -1179,14 +1411,14 @@ export default function BucketSystemApp() {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-            <Stat title="Unassigned cash" value={formatMoney(state.unassigned)} sub="Money not yet told what job it has." tone="cyan" />
+            <Stat title="Unassigned cash" value={formatMoney(state.unassigned)} sub="Real received money not yet placed." tone="cyan" />
             <Stat title="Total saved in buckets" value={formatMoney(totalSaved)} sub={`${fundedCount} funded buckets.`} tone="emerald" />
           </div>
         </div>
 
         <SectionShell
           title="Command bar"
-          sub="Feed the pool, switch views, and keep the board moving without hunting for buttons."
+          sub="Feed the pool, switch views, and move money only after it is actually spendable."
           right={
             <>
               <div className="hidden md:block">
@@ -1231,20 +1463,21 @@ export default function BucketSystemApp() {
                 <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Last local save</div>
                 <div className="mt-2 text-sm leading-6 text-zinc-300">{formatStamp(state.lastSavedAt)}</div>
               </div>
-              <ActionButton onClick={() => setState(INITIAL_STATE)} variant="ghost">Reset board</ActionButton>
+              <ActionButton onClick={() => setState(createInitialState(new Date()))} variant="ghost">Reset board</ActionButton>
             </div>
           </div>
         </SectionShell>
 
         <div className="my-6 grid gap-4 md:grid-cols-4">
           <Stat title="Total bucket targets" value={formatMoney(totalTargets)} sub="Current phase targets." tone="zinc" />
-          <Stat title="Cycle bucket count" value={String(cycleBuckets.length)} sub="Deadline-aware / nearer-term buckets." tone="rose" />
-          <Stat title="Long-term count" value={String(longBuckets.length)} sub="Quiet build buckets." tone="emerald" />
+          <Stat title="Cycle buckets" value={String(cycleBuckets.length)} sub={`Current window ${cycleInfo.currentWindowLabel}.`} tone="rose" />
+          <Stat title="Long-term buckets" value={String(longBuckets.length)} sub="No countdown unless you choose one." tone="emerald" />
           <Stat title="Archived buckets" value={String(archivedBuckets.length)} sub="Retired without disappearing." tone="violet" />
         </div>
 
         {state.view === "today" ? (
           <TodayView
+            refDate={now}
             unassigned={state.unassigned}
             totalNeeded={totalNeeded}
             cycleBuckets={cycleBuckets}
@@ -1261,12 +1494,10 @@ export default function BucketSystemApp() {
               title="Concert mode"
               sub="Show Fund + Small Joy + unassigned = concert-ready pool."
               right={
-                <ActionButton
-                  onClick={() => {
-                    updateShows((shows) => [makeShow({ name: "New Show" }), ...shows]);
-                    log("Added new show card.");
-                  }}
-                >
+                <ActionButton onClick={() => {
+                  updateShows((shows) => [makeShow({ name: "New Show" }), ...shows]);
+                  log("Added new show card.");
+                }}>
                   Add show
                 </ActionButton>
               }
@@ -1335,6 +1566,7 @@ export default function BucketSystemApp() {
               <BucketCard
                 key={bucket.id}
                 bucket={bucket}
+                refDate={now}
                 draftValue={state.drafts[bucket.id] || ""}
                 onDraftChange={(e) => setState((prev) => ({ ...prev, drafts: { ...prev.drafts, [bucket.id]: e.target.value } }))}
                 onAssign={() => assign(bucket.id)}
@@ -1344,30 +1576,14 @@ export default function BucketSystemApp() {
                 onMoveDown={() => moveBucket(bucket.id, "down")}
                 onAdvancePhase={() => {
                   if (bucket.saved < targetOf(bucket) || bucket.phaseIndex >= bucket.phases.length - 1) return;
-                  updateBuckets((buckets) => buckets.map((item) => (item.id === bucket.id ? { ...item, phaseIndex: item.phaseIndex + 1 } : item)));
+                  updateBuckets((buckets) => buckets.map((item) => item.id === bucket.id ? { ...item, phaseIndex: item.phaseIndex + 1 } : item));
                   log(`${bucket.name} advanced to ${bucket.phases[bucket.phaseIndex + 1].label}.`);
                 }}
-                onAddPhase={() =>
-                  updateBuckets((buckets) =>
-                    buckets.map((item) =>
-                      item.id === bucket.id ? { ...item, phases: [...item.phases, makePhase(makeId("phase"), `Phase ${item.phases.length + 1}`, targetOf(item))] } : item
-                    )
-                  )
-                }
-                onUpdatePhase={(phaseId, patch) =>
-                  updateBuckets((buckets) =>
-                    buckets.map((item) =>
-                      item.id !== bucket.id
-                        ? item
-                        : {
-                            ...item,
-                            phases: item.phases.map((phase) =>
-                              phase.id === phaseId ? { ...phase, ...patch, target: patch.target !== undefined ? parseMoney(patch.target) : phase.target } : phase
-                            ),
-                          }
-                    )
-                  )
-                }
+                onAddPhase={() => updateBuckets((buckets) => buckets.map((item) => item.id === bucket.id ? { ...item, phases: [...item.phases, makePhase(makeId("phase"), `Phase ${item.phases.length + 1}`, targetOf(item))] } : item))}
+                onUpdatePhase={(phaseId, patch) => updateBuckets((buckets) => buckets.map((item) => item.id !== bucket.id ? item : {
+                  ...item,
+                  phases: item.phases.map((phase) => phase.id === phaseId ? { ...phase, ...patch, target: patch.target !== undefined ? parseMoney(patch.target) : phase.target } : phase),
+                }))}
                 disableMoveUp={index === 0}
                 disableMoveDown={index === visibleBuckets.length - 1}
               />
