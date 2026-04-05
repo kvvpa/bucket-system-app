@@ -847,6 +847,7 @@ export default function BucketSystemApp() {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [filter, setFilter] = useState<FilterMode>("all");
+  const [unassignedDraft, setUnassignedDraft] = useState("0");
 
   useEffect(() => {
     try {
@@ -867,6 +868,10 @@ export default function BucketSystemApp() {
     const timer = window.setInterval(() => setNow(new Date()), 60000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    setUnassignedDraft(String(state.unassigned));
+  }, [state.unassigned]);
 
   const cycleInfo = useMemo(() => getCycleInfo(now), [now]);
   const activeBuckets = useMemo(() => state.buckets.filter((bucket) => !bucket.archived), [state.buckets]);
@@ -945,6 +950,15 @@ export default function BucketSystemApp() {
     }
     setState((prev) => ({ ...prev, unassigned: pool, buckets: nextBuckets }));
     if (moves.length) log(`Auto-fill: ${moves.join(", ")}.`);
+  };
+
+  const setUnassignedDirect = () => {
+    const next = parseMoney(unassignedDraft);
+    setState((prev) => ({
+      ...prev,
+      unassigned: next,
+      history: [{ id: makeId("log"), text: `Set unassigned to ${formatMoney(next)}.`, ts: new Date().toISOString() }, ...prev.history].slice(0, 80),
+    }));
   };
 
   const exportBackup = () => {
@@ -1044,10 +1058,19 @@ export default function BucketSystemApp() {
               <ActionButton onClick={() => setState((prev) => ({ ...prev, view: prev.view === "today" ? "board" : prev.view === "board" ? "concert" : "today" }))}>Cycle view</ActionButton>
             </div>
 
-            <div className="flex flex-col justify-between gap-3 rounded-[28px] border border-zinc-800 bg-zinc-950/54 p-4">
+            <div className="flex flex-col gap-3 rounded-[28px] border border-zinc-800 bg-zinc-950/54 p-4">
               <div>
                 <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Last local save</div>
                 <div className="mt-2 text-sm leading-6 text-zinc-300">{formatStamp(state.lastSavedAt)}</div>
+              </div>
+              <div>
+                <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Set unassigned</div>
+                <div className="mb-2 text-sm leading-6 text-zinc-400">Correct the live pool directly when the number needs a manual fix.</div>
+                <MoneyInput value={unassignedDraft} onChange={(e) => setUnassignedDraft(e.target.value)} />
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+                <ActionButton onClick={() => setUnassignedDraft(String(state.unassigned))}>Use current</ActionButton>
+                <ActionButton onClick={setUnassignedDirect} variant="primary">Set unassigned</ActionButton>
               </div>
               <ActionButton onClick={() => setState(createInitialState(new Date()))} variant="ghost">Reset board</ActionButton>
             </div>
