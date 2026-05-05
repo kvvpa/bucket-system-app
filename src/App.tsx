@@ -45,6 +45,22 @@ type LegacyPlannerState = {
 type MobileTab = "chart" | "edit" | "tools";
 type PlanKey = "current" | "next";
 
+type ChartSegment = {
+  id: string;
+  label: string;
+  value: number;
+  amount: number;
+  color: string;
+};
+
+type ChartState = {
+  segments: ChartSegment[];
+  allocated: number;
+  remaining: number;
+  chartTotal: number;
+  template: boolean;
+};
+
 function makeId(prefix = "slice") {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -111,7 +127,7 @@ function defaultNextPlan(): PiePlan {
 
 function makeFreshState(): AppState {
   return {
-    version: 4,
+    version: 5,
     current: defaultCurrentPlan(),
     next: defaultNextPlan(),
   };
@@ -123,7 +139,7 @@ function normalizeAppState(raw: Partial<AppState> | LegacyPlannerState | null | 
   if (hasDualPlans) {
     const typed = raw as Partial<AppState>;
     return {
-      version: 4,
+      version: 5,
       current: normalizePlan(typed.current, CURRENT_DEFAULT_TOTAL),
       next: normalizePlan(typed.next, NEXT_DEFAULT_TOTAL),
       updatedAt: typed.updatedAt,
@@ -132,10 +148,61 @@ function normalizeAppState(raw: Partial<AppState> | LegacyPlannerState | null | 
 
   const legacy = raw as LegacyPlannerState | null | undefined;
   return {
-    version: 4,
+    version: 5,
     current: normalizePlan(legacy, CURRENT_DEFAULT_TOTAL),
     next: normalizePlan({ total: NEXT_DEFAULT_TOTAL, sections: [] }, NEXT_DEFAULT_TOTAL),
     updatedAt: legacy?.updatedAt,
+  };
+}
+
+function buildChartState(total: number, sections: Slice[]): ChartState {
+  const positiveSections = sections.filter((section) => section.amount > 0);
+  const allocated = positiveSections.reduce((sum, section) => sum + section.amount, 0);
+  const remaining = Math.max(0, total - allocated);
+
+  if (total <= 0 && allocated <= 0 && sections.length > 0) {
+    return {
+      segments: sections.map((section) => ({
+        id: section.id,
+        label: section.name,
+        value: 1,
+        amount: 0,
+        color: section.color,
+      })),
+      allocated: 0,
+      remaining: 0,
+      chartTotal: sections.length,
+      template: true,
+    };
+  }
+
+  const segments: ChartSegment[] = [
+    ...positiveSections.map((section) => ({
+      id: section.id,
+      label: section.name,
+      value: section.amount,
+      amount: section.amount,
+      color: section.color,
+    })),
+    ...(remaining > 0
+      ? [
+          {
+            id: "remaining",
+            label: "Remaining",
+            value: remaining,
+            amount: remaining,
+            color: "#27272a",
+          },
+        ]
+      : []),
+  ];
+
+  return {
+    segments,
+    allocated,
+    remaining,
+    chartTotal: Math.max(total, allocated, 0),
+    template: false,
   };
 }
 
@@ -289,16 +356,13 @@ function LogoMark() {
   );
 }
 
-function Panel({ title, sub, children, right }: { title: string; sub?: string; children: React.ReactNode; right?: React.ReactNode }) {
+function Panel({ title, children, right }: { title: string; children: React.ReactNode; right?: React.ReactNode }) {
   return (
     <section className="relative h-full overflow-hidden rounded-[30px] border border-zinc-800/90 bg-zinc-900/68 p-4 shadow-2xl shadow-black/20 backdrop-blur-sm md:p-5">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.05),transparent_58%)]" />
       <div className="relative flex h-full flex-col">
         <div className="mb-3 flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-base font-semibold tracking-tight text-zinc-50">{title}</h2>
-            {sub ? <p className="mt-1 text-sm leading-5 text-zinc-400">{sub}</p> : null}
-          </div>
+          <h2 className="text-base font-semibold tracking-tight text-zinc-50">{title}</h2>
           {right}
         </div>
         <div className="min-h-0 flex-1">{children}</div>
@@ -308,33 +372,20 @@ function Panel({ title, sub, children, right }: { title: string; sub?: string; c
 }
 
 function DonutChart({ total, sections, size = 186 }: { total: number; sections: Slice[]; size?: number }) {
-  const positiveSections = sections.filter((section) => section.amount > 0);
-  const allocated = positiveSections.reduce((sum, section) => sum + section.amount, 0);
-  const remaining = Math.max(0, total - allocated);
-  const chartTotal = Math.max(total, allocated, 0);
+  const chart = buildChartState(total, sections);
   const radius = 58;
   const stroke = 22;
   const circumference = 2 * Math.PI * radius;
-
-  const segments = [
-    ...positiveSections.map((section) => ({
-      id: section.id,
-      value: section.amount,
-      color: section.color,
-    })),
-    ...(remaining > 0 ? [{ id: "remaining", value: remaining, color: "#27272a" }] : []),
-  ];
-
   let accumulated = 0;
 
   return (
     <div className="relative shrink-0" style={{ height: size, width: size }}>
       <svg viewBox="0 0 160 160" className="h-full w-full">
         <circle cx="80" cy="80" r={radius} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={stroke} />
-        {chartTotal > 0
-          ? segments.map((segment) => {
-              const dash = (segment.value / chartTotal) * circumference;
-              const offset = (accumulated / chartTotal) * circumference;
+        {chart.chartTotal > 0
+          ? chart.segments.map((segment) => {
+              const dash = (segment.value / chart.chartTotal) * circumference;
+              const offset = (accumulated / chart.chartTotal) * circumference;
               accumulated += segment.value;
 
               return (
@@ -355,59 +406,48 @@ function DonutChart({ total, sections, size = 186 }: { total: number; sections: 
           : null}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-        <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Allocated</div>
-        <div className="mt-2 text-2xl font-semibold tracking-tight text-zinc-50">{formatMoney(allocated)}</div>
-        <div className="mt-1 text-sm text-zinc-400">of {formatMoney(total)}</div>
+        {chart.template ? (
+          <>
+            <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Template</div>
+            <div className="mt-2 text-2xl font-semibold tracking-tight text-zinc-50">Set amounts</div>
+            <div className="mt-1 text-sm text-zinc-400">{sections.length} sections ready</div>
+          </>
+        ) : (
+          <>
+            <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Allocated</div>
+            <div className="mt-2 text-2xl font-semibold tracking-tight text-zinc-50">{formatMoney(chart.allocated)}</div>
+            <div className="mt-1 text-sm text-zinc-400">of {formatMoney(total)}</div>
+          </>
+        )}
       </div>
     </div>
   );
 }
 
 function SummaryList({ total, sections }: { total: number; sections: Slice[] }) {
-  const allocated = sections.reduce((sum, section) => sum + section.amount, 0);
-  const remaining = Math.max(0, total - allocated);
-  const chartTotal = Math.max(total, allocated, 0);
-  const top = [...sections]
-    .filter((section) => section.amount > 0)
-    .sort((a, b) => b.amount - a.amount)
-    .slice(0, 3);
-  const hiddenCount = sections.filter((section) => section.amount > 0).length - top.length;
-
-  const items = [
-    ...top.map((section) => ({
-      id: section.id,
-      label: section.name,
-      amount: section.amount,
-      color: section.color,
-      percent: chartTotal > 0 ? (section.amount / chartTotal) * 100 : 0,
-    })),
-    ...(remaining > 0
-      ? [
-          {
-            id: "remaining",
-            label: "Remaining",
-            amount: remaining,
-            color: "#27272a",
-            percent: chartTotal > 0 ? (remaining / chartTotal) * 100 : 0,
-          },
-        ]
-      : []),
-  ];
+  const chart = buildChartState(total, sections);
+  const top = chart.template
+    ? chart.segments.slice(0, 3)
+    : chart.segments.slice(0, 4);
+  const hiddenCount = Math.max(0, chart.segments.length - top.length);
 
   return (
     <div className="space-y-2">
-      {items.map((item) => (
-        <div key={item.id} className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-800 bg-zinc-950/60 px-3 py-2.5">
-          <div className="flex items-center gap-3">
-            <div className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
-            <div>
-              <div className="text-sm font-medium text-zinc-100">{item.label}</div>
-              <div className="text-xs text-zinc-500">{formatPercent(item.percent)}</div>
+      {top.map((item) => {
+        const percent = chart.chartTotal > 0 ? (item.value / chart.chartTotal) * 100 : 0;
+        return (
+          <div key={item.id} className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-800 bg-zinc-950/60 px-3 py-2.5">
+            <div className="flex items-center gap-3">
+              <div className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
+              <div>
+                <div className="text-sm font-medium text-zinc-100">{item.label}</div>
+                <div className="text-xs text-zinc-500">{chart.template ? "Template" : formatPercent(percent)}</div>
+              </div>
             </div>
+            <div className="text-sm font-medium text-zinc-100">{formatMoney(item.amount)}</div>
           </div>
-          <div className="text-sm font-medium text-zinc-100">{formatMoney(item.amount)}</div>
-        </div>
-      ))}
+        );
+      })}
       {hiddenCount > 0 ? <div className="px-1 text-xs text-zinc-500">+ {hiddenCount} more section{hiddenCount === 1 ? "" : "s"}</div> : null}
     </div>
   );
@@ -538,9 +578,8 @@ export default function App() {
   }, [state, activeIndices]);
 
   const activePie = state[plan];
-  const allocated = useMemo(() => activePie.sections.reduce((sum, section) => sum + section.amount, 0), [activePie]);
-  const remaining = useMemo(() => Number((activePie.total - allocated).toFixed(2)), [activePie.total, allocated]);
-  const overAllocated = remaining < 0;
+  const chart = useMemo(() => buildChartState(activePie.total, activePie.sections), [activePie]);
+  const overAllocated = activePie.total - chart.allocated < 0;
   const activeIndex = activeIndices[plan] || 0;
   const currentSection = activePie.sections[activeIndex] || null;
 
@@ -612,7 +651,7 @@ export default function App() {
   const exportState = () => {
     const d = new Date();
     const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}_${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}${String(d.getSeconds()).padStart(2, "0")}`;
-    const payload = JSON.stringify({ ...state, version: 4, updatedAt: new Date().toISOString() }, null, 2);
+    const payload = JSON.stringify({ ...state, version: 5, updatedAt: new Date().toISOString() }, null, 2);
     const blob = new Blob([payload], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -668,7 +707,7 @@ export default function App() {
               <LogoMark />
               <div>
                 <h1 className="bg-[linear-gradient(135deg,#f8fafc_0%,#67e8f9_55%,#c084fc_100%)] bg-clip-text text-2xl font-semibold tracking-tight text-transparent md:text-4xl">Fidelity pie planner</h1>
-                <p className="mt-2 text-sm leading-6 text-zinc-400 md:max-w-2xl">Current and next stay separate. Copy only goes current to next.</p>
+                <p className="mt-2 text-sm leading-6 text-zinc-400 md:max-w-2xl">Plan your balance.</p>
               </div>
             </div>
             <div className="hidden shrink-0 gap-2 md:flex">
@@ -677,7 +716,7 @@ export default function App() {
               <TabButton active={tab === "tools"} onClick={() => setTab("tools")}>Tools</TabButton>
             </div>
           </div>
-          <div className="mt-3 flex gap-2">
+          <div className="mt-3 hidden gap-2 md:flex">
             <PlanButton active={plan === "current"} onClick={() => setPlan("current")}>Current</PlanButton>
             <PlanButton active={plan === "next"} onClick={() => setPlan("next")}>Next</PlanButton>
           </div>
@@ -686,15 +725,15 @@ export default function App() {
         <div className="mt-3 grid shrink-0 grid-cols-3 gap-2 md:mt-4 md:grid-cols-4 md:gap-3">
           <MiniStat title="Active pie" value={plan === "current" ? "Current" : "Next"} tone={plan === "current" ? "cyan" : "violet"} />
           <MiniStat title="Total" value={formatMoney(activePie.total)} tone="cyan" />
-          <MiniStat title="Allocated" value={formatMoney(allocated)} tone="emerald" />
+          <MiniStat title="Allocated" value={formatMoney(chart.allocated)} tone="emerald" />
           <div className="hidden md:block">
-            <MiniStat title="Remaining" value={formatMoney(Math.max(0, remaining))} tone={overAllocated ? "amber" : "zinc"} />
+            <MiniStat title="Remaining" value={formatMoney(Math.max(0, chart.remaining))} tone={overAllocated ? "amber" : "zinc"} />
           </div>
         </div>
 
         <main className="mt-3 min-h-0 flex-1 md:mt-4">
           {tab === "chart" ? (
-            <Panel title={plan === "current" ? "Current" : "Next"} sub={plan === "current" ? "Manual current-money view." : "Separate future plan."}>
+            <Panel title={plan === "current" ? "Current" : "Next"}>
               <div className="flex h-full flex-col justify-between gap-4 md:flex-row md:items-center md:gap-6">
                 <div className="flex items-center justify-center">
                   <DonutChart total={activePie.total} sections={activePie.sections} size={190} />
@@ -708,8 +747,7 @@ export default function App() {
 
           {tab === "edit" ? (
             <Panel
-              title={plan === "current" ? "Edit current sections" : "Edit next sections"}
-              sub="One section at a time so phone stays on one screen."
+              title="Edit sections"
               right={<div className="rounded-full border border-zinc-800 bg-zinc-950/70 px-3 py-1 text-xs uppercase tracking-[0.16em] text-zinc-400">{activePie.sections.length} total</div>}
             >
               <SliceEditor
@@ -737,7 +775,7 @@ export default function App() {
           ) : null}
 
           {tab === "tools" ? (
-            <Panel title={plan === "current" ? "Current tools" : "Next tools"} sub="Set the total and move JSON between devices.">
+            <Panel title="Tools">
               <div className="grid h-full content-start gap-3">
                 <div>
                   <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">{plan === "current" ? "Current total" : "Next total"}</div>
@@ -760,7 +798,7 @@ export default function App() {
 
                 <div className="grid grid-cols-2 gap-2">
                   <MiniStat title="Sections" value={String(activePie.sections.length)} />
-                  <MiniStat title="Status" value={overAllocated ? "Over" : "Balanced"} tone={overAllocated ? "rose" : "emerald"} />
+                  <MiniStat title="Status" value={overAllocated ? "Over" : chart.template ? "Template" : "Balanced"} tone={overAllocated ? "rose" : chart.template ? "violet" : "emerald"} />
                 </div>
 
                 <div className="rounded-[24px] border border-zinc-800 bg-zinc-950/60 px-4 py-3 text-sm text-zinc-400">
@@ -772,10 +810,16 @@ export default function App() {
           ) : null}
         </main>
 
-        <nav className="mt-3 grid shrink-0 grid-cols-3 gap-2 md:hidden">
-          <MobileNavButton active={tab === "chart"} onClick={() => setTab("chart")}>Chart</MobileNavButton>
-          <MobileNavButton active={tab === "edit"} onClick={() => setTab("edit")}>Edit</MobileNavButton>
-          <MobileNavButton active={tab === "tools"} onClick={() => setTab("tools")}>Tools</MobileNavButton>
+        <nav className="mt-3 grid shrink-0 gap-2 md:hidden">
+          <div className="grid grid-cols-2 gap-2">
+            <PlanButton active={plan === "current"} onClick={() => setPlan("current")}>Current</PlanButton>
+            <PlanButton active={plan === "next"} onClick={() => setPlan("next")}>Next</PlanButton>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <MobileNavButton active={tab === "chart"} onClick={() => setTab("chart")}>Chart</MobileNavButton>
+            <MobileNavButton active={tab === "edit"} onClick={() => setTab("edit")}>Edit</MobileNavButton>
+            <MobileNavButton active={tab === "tools"} onClick={() => setTab("tools")}>Tools</MobileNavButton>
+          </div>
         </nav>
       </div>
     </div>
