@@ -109,6 +109,14 @@ function defaultNextPlan(): PiePlan {
   return normalizePlan({ total: NEXT_DEFAULT_TOTAL, sections: starterSections() }, NEXT_DEFAULT_TOTAL);
 }
 
+function makeFreshState(): AppState {
+  return {
+    version: 4,
+    current: defaultCurrentPlan(),
+    next: defaultNextPlan(),
+  };
+}
+
 function normalizeAppState(raw: Partial<AppState> | LegacyPlannerState | null | undefined): AppState {
   const hasDualPlans = Boolean(raw && typeof raw === "object" && ("current" in raw || "next" in raw));
 
@@ -126,12 +134,12 @@ function normalizeAppState(raw: Partial<AppState> | LegacyPlannerState | null | 
   return {
     version: 4,
     current: normalizePlan(legacy, CURRENT_DEFAULT_TOTAL),
-    next: defaultNextPlan(),
+    next: normalizePlan({ total: NEXT_DEFAULT_TOTAL, sections: [] }, NEXT_DEFAULT_TOTAL),
     updatedAt: legacy?.updatedAt,
   };
 }
 
-const INITIAL_STATE: AppState = normalizeAppState(null);
+const INITIAL_STATE: AppState = makeFreshState();
 
 function cls(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -580,7 +588,7 @@ export default function App() {
     if (!window.confirm("Clear the Next pie? This will remove its total and all sections.")) return;
     setState((prev) => ({
       ...prev,
-      next: defaultNextPlan(),
+      next: { total: 0, sections: [] },
     }));
     setActiveIndices((prev) => ({ ...prev, next: 0 }));
     setPlan("next");
@@ -637,7 +645,7 @@ export default function App() {
 
   const resetPlanner = () => {
     if (!window.confirm("Reset everything? This will restore both pies to their starter state.")) return;
-    setState(INITIAL_STATE);
+    setState(makeFreshState());
     setActiveIndices({ current: 0, next: 0 });
     setPlan("current");
     setTab("chart");
