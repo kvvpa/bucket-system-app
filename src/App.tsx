@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 const STORAGE_KEY = "joey-fidelity-pie-planner-v1";
-const CURRENT_DEFAULT_TOTAL = 302.96;
-const NEXT_DEFAULT_TOTAL = 1300;
+const CURRENT_DEFAULT_TOTAL = 0;
+const NEXT_DEFAULT_TOTAL = 0;
 const SLICE_COLORS = [
   "#60a5fa",
   "#f472b6",
@@ -74,6 +74,13 @@ function nextColor(index: number): string {
   return SLICE_COLORS[index % SLICE_COLORS.length];
 }
 
+function cloneSections(sections: Slice[]): Slice[] {
+  return sections.map((section) => ({
+    ...section,
+    id: makeId("slice"),
+  }));
+}
+
 function normalizePlan(raw: Partial<PiePlan> | null | undefined, fallbackTotal: number): PiePlan {
   const total = parseMoney(raw?.total ?? fallbackTotal);
   const incoming = Array.isArray(raw?.sections) ? raw?.sections : [];
@@ -88,26 +95,11 @@ function normalizePlan(raw: Partial<PiePlan> | null | undefined, fallbackTotal: 
 }
 
 function defaultCurrentPlan(): PiePlan {
-  return normalizePlan(
-    {
-      total: CURRENT_DEFAULT_TOTAL,
-      sections: [
-        { id: makeId("slice"), name: "Core", amount: 150, color: nextColor(0) },
-        { id: makeId("slice"), name: "Buffer", amount: 75, color: nextColor(1) },
-      ],
-    },
-    CURRENT_DEFAULT_TOTAL
-  );
+  return normalizePlan({ total: CURRENT_DEFAULT_TOTAL, sections: [] }, CURRENT_DEFAULT_TOTAL);
 }
 
 function defaultNextPlan(): PiePlan {
-  return normalizePlan(
-    {
-      total: NEXT_DEFAULT_TOTAL,
-      sections: [],
-    },
-    NEXT_DEFAULT_TOTAL
-  );
+  return normalizePlan({ total: NEXT_DEFAULT_TOTAL, sections: [] }, NEXT_DEFAULT_TOTAL);
 }
 
 function normalizeAppState(raw: Partial<AppState> | LegacyPlannerState | null | undefined): AppState {
@@ -116,7 +108,7 @@ function normalizeAppState(raw: Partial<AppState> | LegacyPlannerState | null | 
   if (hasDualPlans) {
     const typed = raw as Partial<AppState>;
     return {
-      version: 2,
+      version: 3,
       current: normalizePlan(typed.current, CURRENT_DEFAULT_TOTAL),
       next: normalizePlan(typed.next, NEXT_DEFAULT_TOTAL),
       updatedAt: typed.updatedAt,
@@ -125,7 +117,7 @@ function normalizeAppState(raw: Partial<AppState> | LegacyPlannerState | null | 
 
   const legacy = raw as LegacyPlannerState | null | undefined;
   return {
-    version: 2,
+    version: 3,
     current: normalizePlan(legacy, CURRENT_DEFAULT_TOTAL),
     next: defaultNextPlan(),
     updatedAt: legacy?.updatedAt,
@@ -201,7 +193,15 @@ function ActionButton({
   );
 }
 
-function MiniStat({ title, value, tone = "zinc" }: { title: string; value: string; tone?: "zinc" | "cyan" | "emerald" | "amber" | "rose" | "violet" }) {
+function MiniStat({
+  title,
+  value,
+  tone = "zinc",
+}: {
+  title: string;
+  value: string;
+  tone?: "zinc" | "cyan" | "emerald" | "amber" | "rose" | "violet";
+}) {
   const tones = {
     zinc: "border-zinc-800 bg-zinc-950/70",
     cyan: "border-cyan-900/70 bg-cyan-950/35",
@@ -492,15 +492,22 @@ export default function App() {
   }, [state]);
 
   useEffect(() => {
-    const sections = state[plan].sections;
-    if (!sections.length) {
-      setActiveIndices((prev) => ({ ...prev, [plan]: 0 }));
-      return;
+    const nextIndices = { ...activeIndices };
+    let changed = false;
+
+    for (const key of ["current", "next"] as PlanKey[]) {
+      const sections = state[key].sections;
+      if (!sections.length && nextIndices[key] !== 0) {
+        nextIndices[key] = 0;
+        changed = true;
+      } else if (sections.length && nextIndices[key] > sections.length - 1) {
+        nextIndices[key] = sections.length - 1;
+        changed = true;
+      }
     }
-    if (activeIndices[plan] > sections.length - 1) {
-      setActiveIndices((prev) => ({ ...prev, [plan]: sections.length - 1 }));
-    }
-  }, [state, plan, activeIndices]);
+
+    if (changed) setActiveIndices(nextIndices);
+  }, [state, activeIndices]);
 
   const activePie = state[plan];
   const allocated = useMemo(() => activePie.sections.reduce((sum, section) => sum + section.amount, 0), [activePie]);
@@ -559,10 +566,23 @@ export default function App() {
     setTab("chart");
   };
 
+  const copyCurrentToNext = () => {
+    setState((prev) => ({
+      ...prev,
+      next: {
+        total: prev.current.total,
+        sections: cloneSections(prev.current.sections),
+      },
+    }));
+    setActiveIndices((prev) => ({ ...prev, next: 0 }));
+    setPlan("next");
+    setTab("chart");
+  };
+
   const exportState = () => {
     const d = new Date();
     const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}_${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}${String(d.getSeconds()).padStart(2, "0")}`;
-    const payload = JSON.stringify({ ...state, version: 2, updatedAt: new Date().toISOString() }, null, 2);
+    const payload = JSON.stringify({ ...state, version: 3, updatedAt: new Date().toISOString() }, null, 2);
     const blob = new Blob([payload], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -582,6 +602,8 @@ export default function App() {
         const parsed = JSON.parse(String(reader.result)) as Partial<AppState> | LegacyPlannerState;
         setState(normalizeAppState(parsed));
         setActiveIndices({ current: 0, next: 0 });
+        setPlan("current");
+        setTab("chart");
       } catch {
         alert("That JSON file could not be read.");
       }
@@ -610,17 +632,10 @@ export default function App() {
         <input ref={fileRef} type="file" accept="application/json" className="hidden" onChange={importState} />
 
         <header className="shrink-0 rounded-[30px] border border-zinc-800 bg-zinc-900/72 p-4 shadow-2xl shadow-black/25 backdrop-blur-sm md:p-6">
-          <div className="mb-3 flex flex-wrap gap-2">
-            <span className="rounded-full border border-zinc-700 bg-zinc-950/70 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-300">Fidelity pie planner</span>
-            <span className="rounded-full border border-cyan-900/70 bg-cyan-950/35 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-cyan-100">Current + next</span>
-            <span className="rounded-full border border-zinc-800 bg-zinc-950/70 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-400">No auto merge</span>
-          </div>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-zinc-50 md:text-4xl">See Fidelity as editable pieces.</h1>
-              <p className="mt-2 text-sm leading-6 text-zinc-400 md:max-w-2xl">
-                Current pie stays manual. Next pie is separate planning only. Export and import keep both.
-              </p>
+              <h1 className="text-2xl font-semibold tracking-tight text-zinc-50 md:text-4xl">Fidelity pie planner</h1>
+              <p className="mt-2 text-sm leading-6 text-zinc-400 md:max-w-2xl">Current and next stay separate. Copy only goes current to next.</p>
             </div>
             <div className="hidden shrink-0 gap-2 md:flex">
               <TabButton active={tab === "chart"} onClick={() => setTab("chart")}>Chart</TabButton>
@@ -629,8 +644,8 @@ export default function App() {
             </div>
           </div>
           <div className="mt-3 flex gap-2">
-            <PlanButton active={plan === "current"} onClick={() => setPlan("current")}>Current Fidelity</PlanButton>
-            <PlanButton active={plan === "next"} onClick={() => setPlan("next")}>Next Paycheck</PlanButton>
+            <PlanButton active={plan === "current"} onClick={() => setPlan("current")}>Current</PlanButton>
+            <PlanButton active={plan === "next"} onClick={() => setPlan("next")}>Next</PlanButton>
           </div>
         </header>
 
@@ -646,8 +661,8 @@ export default function App() {
         <main className="mt-3 min-h-0 flex-1 md:mt-4">
           {tab === "chart" ? (
             <Panel
-              title={plan === "current" ? "Current Fidelity" : "Next paycheck plan"}
-              sub={plan === "current" ? "Manual current-money view." : "Separate future plan with no effect on current."}
+              title={plan === "current" ? "Current" : "Next"}
+              sub={plan === "current" ? "Manual current-money view." : "Separate future plan."}
             >
               <div className="flex h-full flex-col justify-between gap-4 md:flex-row md:items-center md:gap-6">
                 <div className="flex items-center justify-center">
@@ -662,7 +677,7 @@ export default function App() {
 
           {tab === "edit" ? (
             <Panel
-              title={plan === "current" ? "Edit current sections" : "Edit next-plan sections"}
+              title={plan === "current" ? "Edit current sections" : "Edit next sections"}
               sub="One section at a time so phone stays on one screen."
               right={<div className="rounded-full border border-zinc-800 bg-zinc-950/70 px-3 py-1 text-xs uppercase tracking-[0.16em] text-zinc-400">{activePie.sections.length} total</div>}
             >
@@ -673,18 +688,28 @@ export default function App() {
                 count={activePie.sections.length}
                 onChange={(patch) => currentSection && updateSection(plan, currentSection.id, patch)}
                 onDelete={() => currentSection && deleteSection(plan, currentSection.id)}
-                onPrev={() => setActiveIndices((prev) => ({ ...prev, [plan]: activePie.sections.length ? (prev[plan] - 1 + activePie.sections.length) % activePie.sections.length : 0 }))}
-                onNext={() => setActiveIndices((prev) => ({ ...prev, [plan]: activePie.sections.length ? (prev[plan] + 1) % activePie.sections.length : 0 }))}
+                onPrev={() =>
+                  setActiveIndices((prev) => ({
+                    ...prev,
+                    [plan]: activePie.sections.length ? (prev[plan] - 1 + activePie.sections.length) % activePie.sections.length : 0,
+                  }))
+                }
+                onNext={() =>
+                  setActiveIndices((prev) => ({
+                    ...prev,
+                    [plan]: activePie.sections.length ? (prev[plan] + 1) % activePie.sections.length : 0,
+                  }))
+                }
                 onAdd={() => addSection(plan)}
               />
             </Panel>
           ) : null}
 
           {tab === "tools" ? (
-            <Panel title={plan === "current" ? "Current tools" : "Next-plan tools"} sub="Set the total and move JSON between devices.">
+            <Panel title={plan === "current" ? "Current tools" : "Next tools"} sub="Set the total and move JSON between devices.">
               <div className="grid h-full content-start gap-3">
                 <div>
-                  <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">{plan === "current" ? "Current total" : "Next paycheck total"}</div>
+                  <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">{plan === "current" ? "Current total" : "Next total"}</div>
                   <MoneyInput value={String(activePie.total)} onChange={(e) => updatePlan(plan, (pie) => ({ ...pie, total: parseMoney(e.target.value) }))} />
                 </div>
 
@@ -696,7 +721,10 @@ export default function App() {
                 </div>
 
                 {plan === "next" ? (
-                  <ActionButton onClick={clearNextPlan} variant="ghost" className="w-full">Clear next pie</ActionButton>
+                  <div className="grid grid-cols-2 gap-2">
+                    <ActionButton onClick={copyCurrentToNext}>Copy current in</ActionButton>
+                    <ActionButton onClick={clearNextPlan} variant="ghost">Clear next pie</ActionButton>
+                  </div>
                 ) : null}
 
                 <div className="grid grid-cols-2 gap-2">
