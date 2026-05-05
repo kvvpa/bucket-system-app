@@ -81,6 +81,13 @@ function cloneSections(sections: Slice[]): Slice[] {
   }));
 }
 
+function starterSections(): Slice[] {
+  return [
+    { id: makeId("slice"), name: "Emergency Fund", amount: 0, color: nextColor(0) },
+    { id: makeId("slice"), name: "Unassigned", amount: 0, color: nextColor(1) },
+  ];
+}
+
 function normalizePlan(raw: Partial<PiePlan> | null | undefined, fallbackTotal: number): PiePlan {
   const total = parseMoney(raw?.total ?? fallbackTotal);
   const incoming = Array.isArray(raw?.sections) ? raw?.sections : [];
@@ -95,11 +102,11 @@ function normalizePlan(raw: Partial<PiePlan> | null | undefined, fallbackTotal: 
 }
 
 function defaultCurrentPlan(): PiePlan {
-  return normalizePlan({ total: CURRENT_DEFAULT_TOTAL, sections: [] }, CURRENT_DEFAULT_TOTAL);
+  return normalizePlan({ total: CURRENT_DEFAULT_TOTAL, sections: starterSections() }, CURRENT_DEFAULT_TOTAL);
 }
 
 function defaultNextPlan(): PiePlan {
-  return normalizePlan({ total: NEXT_DEFAULT_TOTAL, sections: [] }, NEXT_DEFAULT_TOTAL);
+  return normalizePlan({ total: NEXT_DEFAULT_TOTAL, sections: starterSections() }, NEXT_DEFAULT_TOTAL);
 }
 
 function normalizeAppState(raw: Partial<AppState> | LegacyPlannerState | null | undefined): AppState {
@@ -108,7 +115,7 @@ function normalizeAppState(raw: Partial<AppState> | LegacyPlannerState | null | 
   if (hasDualPlans) {
     const typed = raw as Partial<AppState>;
     return {
-      version: 3,
+      version: 4,
       current: normalizePlan(typed.current, CURRENT_DEFAULT_TOTAL),
       next: normalizePlan(typed.next, NEXT_DEFAULT_TOTAL),
       updatedAt: typed.updatedAt,
@@ -117,7 +124,7 @@ function normalizeAppState(raw: Partial<AppState> | LegacyPlannerState | null | 
 
   const legacy = raw as LegacyPlannerState | null | undefined;
   return {
-    version: 3,
+    version: 4,
     current: normalizePlan(legacy, CURRENT_DEFAULT_TOTAL),
     next: defaultNextPlan(),
     updatedAt: legacy?.updatedAt,
@@ -258,6 +265,19 @@ function PlanButton({ active, children, onClick }: { active: boolean; children: 
     >
       {children}
     </button>
+  );
+}
+
+function LogoMark() {
+  return (
+    <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-[20px] border border-cyan-400/30 bg-zinc-950/90 shadow-lg shadow-cyan-950/20">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(103,232,249,0.18),transparent_58%)]" />
+      <svg viewBox="0 0 64 64" className="relative h-10 w-10">
+        <circle cx="32" cy="32" r="20" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="10" />
+        <circle cx="32" cy="32" r="20" fill="none" stroke="#67e8f9" strokeWidth="10" strokeDasharray="50 76" transform="rotate(-90 32 32)" />
+        <circle cx="32" cy="32" r="20" fill="none" stroke="#c084fc" strokeWidth="10" strokeDasharray="26 100" strokeDashoffset="-52" transform="rotate(-90 32 32)" />
+      </svg>
+    </div>
   );
 }
 
@@ -445,7 +465,7 @@ function SliceEditor({
               value={section.name}
               onChange={(e) => onChange({ name: e.target.value })}
               className="w-full rounded-2xl border border-zinc-700 bg-zinc-950/90 px-4 py-3 text-sm text-zinc-100 outline-none"
-              placeholder="Rent, buffer, gas"
+              placeholder="Emergency Fund, Unassigned"
             />
           </div>
 
@@ -557,9 +577,10 @@ export default function App() {
   };
 
   const clearNextPlan = () => {
+    if (!window.confirm("Clear the Next pie? This will remove its total and all sections.")) return;
     setState((prev) => ({
       ...prev,
-      next: { total: 0, sections: [] },
+      next: defaultNextPlan(),
     }));
     setActiveIndices((prev) => ({ ...prev, next: 0 }));
     setPlan("next");
@@ -567,6 +588,7 @@ export default function App() {
   };
 
   const copyCurrentToNext = () => {
+    if (!window.confirm("Copy the Current pie into the Next pie? This will replace the Next pie.")) return;
     setState((prev) => ({
       ...prev,
       next: {
@@ -582,7 +604,7 @@ export default function App() {
   const exportState = () => {
     const d = new Date();
     const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}_${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}${String(d.getSeconds()).padStart(2, "0")}`;
-    const payload = JSON.stringify({ ...state, version: 3, updatedAt: new Date().toISOString() }, null, 2);
+    const payload = JSON.stringify({ ...state, version: 4, updatedAt: new Date().toISOString() }, null, 2);
     const blob = new Blob([payload], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -614,6 +636,7 @@ export default function App() {
   };
 
   const resetPlanner = () => {
+    if (!window.confirm("Reset everything? This will restore both pies to their starter state.")) return;
     setState(INITIAL_STATE);
     setActiveIndices({ current: 0, next: 0 });
     setPlan("current");
@@ -632,10 +655,13 @@ export default function App() {
         <input ref={fileRef} type="file" accept="application/json" className="hidden" onChange={importState} />
 
         <header className="shrink-0 rounded-[30px] border border-zinc-800 bg-zinc-900/72 p-4 shadow-2xl shadow-black/25 backdrop-blur-sm md:p-6">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-zinc-50 md:text-4xl">Fidelity pie planner</h1>
-              <p className="mt-2 text-sm leading-6 text-zinc-400 md:max-w-2xl">Current and next stay separate. Copy only goes current to next.</p>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <LogoMark />
+              <div>
+                <h1 className="bg-[linear-gradient(135deg,#f8fafc_0%,#67e8f9_55%,#c084fc_100%)] bg-clip-text text-2xl font-semibold tracking-tight text-transparent md:text-4xl">Fidelity pie planner</h1>
+                <p className="mt-2 text-sm leading-6 text-zinc-400 md:max-w-2xl">Current and next stay separate. Copy only goes current to next.</p>
+              </div>
             </div>
             <div className="hidden shrink-0 gap-2 md:flex">
               <TabButton active={tab === "chart"} onClick={() => setTab("chart")}>Chart</TabButton>
@@ -660,10 +686,7 @@ export default function App() {
 
         <main className="mt-3 min-h-0 flex-1 md:mt-4">
           {tab === "chart" ? (
-            <Panel
-              title={plan === "current" ? "Current" : "Next"}
-              sub={plan === "current" ? "Manual current-money view." : "Separate future plan."}
-            >
+            <Panel title={plan === "current" ? "Current" : "Next"} sub={plan === "current" ? "Manual current-money view." : "Separate future plan."}>
               <div className="flex h-full flex-col justify-between gap-4 md:flex-row md:items-center md:gap-6">
                 <div className="flex items-center justify-center">
                   <DonutChart total={activePie.total} sections={activePie.sections} size={190} />
