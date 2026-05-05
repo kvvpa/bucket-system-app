@@ -92,10 +92,7 @@ function nextColor(index: number): string {
 }
 
 function cloneSections(sections: Slice[]): Slice[] {
-  return sections.map((section) => ({
-    ...section,
-    id: makeId("slice"),
-  }));
+  return sections.map((section) => ({ ...section, id: makeId("slice") }));
 }
 
 function starterSections(): Slice[] {
@@ -107,7 +104,7 @@ function starterSections(): Slice[] {
 
 function normalizePlan(raw: Partial<PiePlan> | null | undefined, fallbackTotal: number): PiePlan {
   const total = parseMoney(raw?.total ?? fallbackTotal);
-  const incoming = Array.isArray(raw?.sections) ? raw?.sections : [];
+  const incoming = Array.isArray(raw?.sections) ? raw.sections : [];
   const sections = incoming.map((section, index) => ({
     id: section.id || makeId("slice"),
     name: section.name || `Section ${index + 1}`,
@@ -128,7 +125,7 @@ function defaultNextPlan(): PiePlan {
 
 function makeFreshState(): AppState {
   return {
-    version: 5,
+    version: 6,
     current: defaultCurrentPlan(),
     next: defaultNextPlan(),
   };
@@ -140,7 +137,7 @@ function normalizeAppState(raw: Partial<AppState> | LegacyPlannerState | null | 
   if (hasDualPlans) {
     const typed = raw as Partial<AppState>;
     return {
-      version: 5,
+      version: 6,
       current: normalizePlan(typed.current, CURRENT_DEFAULT_TOTAL),
       next: normalizePlan(typed.next, NEXT_DEFAULT_TOTAL),
       updatedAt: typed.updatedAt,
@@ -149,7 +146,7 @@ function normalizeAppState(raw: Partial<AppState> | LegacyPlannerState | null | 
 
   const legacy = raw as LegacyPlannerState | null | undefined;
   return {
-    version: 5,
+    version: 6,
     current: normalizePlan(legacy, CURRENT_DEFAULT_TOTAL),
     next: normalizePlan({ total: NEXT_DEFAULT_TOTAL, sections: [] }, NEXT_DEFAULT_TOTAL),
     updatedAt: legacy?.updatedAt,
@@ -186,15 +183,7 @@ function buildChartState(total: number, sections: Slice[]): ChartState {
       color: section.color,
     })),
     ...(remaining > 0
-      ? [
-          {
-            id: "remaining",
-            label: "Remaining",
-            value: remaining,
-            amount: remaining,
-            color: "#27272a",
-          },
-        ]
+      ? [{ id: "remaining", label: "Remaining", value: remaining, amount: remaining, color: "#27272a" }]
       : []),
   ];
 
@@ -213,15 +202,7 @@ function cls(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
 }
 
-function MoneyInput({
-  value,
-  onChange,
-  placeholder = "0",
-}: {
-  value: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  placeholder?: string;
-}) {
+function MoneyInput({ value, onChange, placeholder = "0" }: { value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; placeholder?: string }) {
   const [draft, setDraft] = useState(value);
   const [focused, setFocused] = useState(false);
 
@@ -251,19 +232,7 @@ function MoneyInput({
   );
 }
 
-function ActionButton({
-  children,
-  onClick,
-  variant = "secondary",
-  className = "",
-  disabled = false,
-}: {
-  children: React.ReactNode;
-  onClick?: () => void;
-  variant?: "primary" | "secondary" | "ghost";
-  className?: string;
-  disabled?: boolean;
-}) {
+function ActionButton({ children, onClick, variant = "secondary", className = "", disabled = false }: { children: React.ReactNode; onClick?: () => void; variant?: "primary" | "secondary" | "ghost"; className?: string; disabled?: boolean }) {
   const variants = {
     primary: "border-zinc-100 bg-zinc-100 text-zinc-950 hover:bg-white",
     secondary: "border-zinc-700 bg-zinc-950/80 text-zinc-100 hover:border-zinc-500 hover:bg-zinc-900",
@@ -285,15 +254,7 @@ function ActionButton({
   );
 }
 
-function MiniStat({
-  title,
-  value,
-  tone = "zinc",
-}: {
-  title: string;
-  value: string;
-  tone?: "zinc" | "cyan" | "emerald" | "amber" | "rose" | "violet";
-}) {
+function MiniStat({ title, value, tone = "zinc" }: { title: string; value: string; tone?: "zinc" | "cyan" | "emerald" | "amber" | "rose" | "violet" }) {
   const tones = {
     zinc: "border-zinc-800 bg-zinc-950/70",
     cyan: "border-cyan-900/70 bg-cyan-950/35",
@@ -415,19 +376,19 @@ function DonutChart({ total, sections, size = 186 }: { total: number; sections: 
             })
           : null}
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+      <div className="absolute inset-0 flex items-center justify-center px-5 text-center">
         {chart.template ? (
-          <>
+          <div className="max-w-[110px]">
             <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Template</div>
-            <div className="mt-2 text-2xl font-semibold tracking-tight text-zinc-50">Set amounts</div>
-            <div className="mt-1 text-sm text-zinc-400">{sections.length} sections ready</div>
-          </>
+            <div className="mt-2 text-xl font-semibold leading-tight tracking-tight text-zinc-50">Add values</div>
+            <div className="mt-1 text-xs leading-4 text-zinc-400">{sections.length} sections</div>
+          </div>
         ) : (
-          <>
+          <div className="max-w-[118px]">
             <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Allocated</div>
-            <div className="mt-2 text-2xl font-semibold tracking-tight text-zinc-50">{formatMoney(chart.allocated)}</div>
-            <div className="mt-1 text-sm text-zinc-400">of {formatMoney(total)}</div>
-          </>
+            <div className="mt-2 break-words text-xl font-semibold leading-tight tracking-tight text-zinc-50">{formatMoney(chart.allocated)}</div>
+            <div className="mt-1 text-xs leading-4 text-zinc-400">of {formatMoney(total)}</div>
+          </div>
         )}
       </div>
     </div>
@@ -605,10 +566,7 @@ export default function App() {
   const currentSection = activePie.sections[activeIndex] || null;
 
   const updatePlan = (planKey: PlanKey, updater: (pie: PiePlan) => PiePlan) => {
-    setState((prev) => ({
-      ...prev,
-      [planKey]: updater(prev[planKey]),
-    }));
+    setState((prev) => ({ ...prev, [planKey]: updater(prev[planKey]) }));
   };
 
   const updateSection = (planKey: PlanKey, id: string, patch: Partial<Slice>) => {
@@ -622,15 +580,23 @@ export default function App() {
     const amount = parseMoney(rawValue);
     if (amount <= 0 && rawValue !== "0" && rawValue !== "0.00") return;
 
-    updatePlan(planKey, (pie) => ({
-      ...pie,
-      sections: pie.sections.map((section) => {
+    updatePlan(planKey, (pie) => {
+      const nextSections = pie.sections.map((section) => {
         if (section.id !== id) return section;
         if (action === "set") return { ...section, amount };
         if (action === "add") return { ...section, amount: parseMoney(section.amount + amount) };
         return { ...section, amount: parseMoney(Math.max(0, section.amount - amount)) };
-      }),
-    }));
+      });
+
+      const allocated = nextSections.reduce((sum, section) => sum + section.amount, 0);
+      const nextTotal = parseMoney(Math.max(pie.total, allocated));
+
+      return {
+        ...pie,
+        total: nextTotal,
+        sections: nextSections,
+      };
+    });
   };
 
   const addSection = (planKey: PlanKey) => {
@@ -661,10 +627,7 @@ export default function App() {
 
   const clearNextPlan = () => {
     if (!window.confirm("Clear the Next pie? This will remove its total and all sections.")) return;
-    setState((prev) => ({
-      ...prev,
-      next: { total: 0, sections: [] },
-    }));
+    setState((prev) => ({ ...prev, next: { total: 0, sections: [] } }));
     setActiveIndices((prev) => ({ ...prev, next: 0 }));
     setPlan("next");
     setTab("chart");
@@ -687,7 +650,7 @@ export default function App() {
   const exportState = () => {
     const d = new Date();
     const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}_${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}${String(d.getSeconds()).padStart(2, "0")}`;
-    const payload = JSON.stringify({ ...state, version: 5, updatedAt: new Date().toISOString() }, null, 2);
+    const payload = JSON.stringify({ ...state, version: 6, updatedAt: new Date().toISOString() }, null, 2);
     const blob = new Blob([payload], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -782,10 +745,7 @@ export default function App() {
           ) : null}
 
           {tab === "edit" ? (
-            <Panel
-              title="Edit sections"
-              right={<div className="rounded-full border border-zinc-800 bg-zinc-950/70 px-3 py-1 text-xs uppercase tracking-[0.16em] text-zinc-400">{activePie.sections.length} total</div>}
-            >
+            <Panel title="Edit sections" right={<div className="rounded-full border border-zinc-800 bg-zinc-950/70 px-3 py-1 text-xs uppercase tracking-[0.16em] text-zinc-400">{activePie.sections.length} total</div>}>
               <SliceEditor
                 section={currentSection}
                 total={activePie.total}
@@ -793,18 +753,8 @@ export default function App() {
                 count={activePie.sections.length}
                 onChange={(patch) => currentSection && updateSection(plan, currentSection.id, patch)}
                 onDelete={() => currentSection && deleteSection(plan, currentSection.id)}
-                onPrev={() =>
-                  setActiveIndices((prev) => ({
-                    ...prev,
-                    [plan]: activePie.sections.length ? (prev[plan] - 1 + activePie.sections.length) % activePie.sections.length : 0,
-                  }))
-                }
-                onNext={() =>
-                  setActiveIndices((prev) => ({
-                    ...prev,
-                    [plan]: activePie.sections.length ? (prev[plan] + 1) % activePie.sections.length : 0,
-                  }))
-                }
+                onPrev={() => setActiveIndices((prev) => ({ ...prev, [plan]: activePie.sections.length ? (prev[plan] - 1 + activePie.sections.length) % activePie.sections.length : 0 }))}
+                onNext={() => setActiveIndices((prev) => ({ ...prev, [plan]: activePie.sections.length ? (prev[plan] + 1) % activePie.sections.length : 0 }))}
                 onAddSection={() => addSection(plan)}
                 onAmountAction={(action, value) => currentSection && applyAmountAction(plan, currentSection.id, action, value)}
               />
