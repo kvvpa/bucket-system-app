@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 const STORAGE_KEY = "joey-fidelity-pie-planner-v1";
-const DEFAULT_TOTAL = 302.96;
+const CURRENT_DEFAULT_TOTAL = 302.96;
+const NEXT_DEFAULT_TOTAL = 1300;
 const SLICE_COLORS = [
   "#60a5fa",
   "#f472b6",
@@ -22,14 +23,27 @@ type Slice = {
   color: string;
 };
 
-type PlannerState = {
-  version: number;
+type PiePlan = {
   total: number;
   sections: Slice[];
+};
+
+type AppState = {
+  version: number;
+  current: PiePlan;
+  next: PiePlan;
+  updatedAt?: string;
+};
+
+type LegacyPlannerState = {
+  version?: number;
+  total?: number;
+  sections?: Slice[];
   updatedAt?: string;
 };
 
 type MobileTab = "chart" | "edit" | "tools";
+type PlanKey = "current" | "next";
 
 function makeId(prefix = "slice") {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -60,8 +74,8 @@ function nextColor(index: number): string {
   return SLICE_COLORS[index % SLICE_COLORS.length];
 }
 
-function normalizeState(raw: Partial<PlannerState> | null | undefined): PlannerState {
-  const total = parseMoney(raw?.total ?? DEFAULT_TOTAL);
+function normalizePlan(raw: Partial<PiePlan> | null | undefined, fallbackTotal: number): PiePlan {
+  const total = parseMoney(raw?.total ?? fallbackTotal);
   const incoming = Array.isArray(raw?.sections) ? raw?.sections : [];
   const sections = incoming.map((section, index) => ({
     id: section.id || makeId("slice"),
@@ -70,22 +84,55 @@ function normalizeState(raw: Partial<PlannerState> | null | undefined): PlannerS
     color: typeof section.color === "string" && section.color ? section.color : nextColor(index),
   }));
 
+  return { total, sections };
+}
+
+function defaultCurrentPlan(): PiePlan {
+  return normalizePlan(
+    {
+      total: CURRENT_DEFAULT_TOTAL,
+      sections: [
+        { id: makeId("slice"), name: "Core", amount: 150, color: nextColor(0) },
+        { id: makeId("slice"), name: "Buffer", amount: 75, color: nextColor(1) },
+      ],
+    },
+    CURRENT_DEFAULT_TOTAL
+  );
+}
+
+function defaultNextPlan(): PiePlan {
+  return normalizePlan(
+    {
+      total: NEXT_DEFAULT_TOTAL,
+      sections: [],
+    },
+    NEXT_DEFAULT_TOTAL
+  );
+}
+
+function normalizeAppState(raw: Partial<AppState> | LegacyPlannerState | null | undefined): AppState {
+  const hasDualPlans = Boolean(raw && typeof raw === "object" && ("current" in raw || "next" in raw));
+
+  if (hasDualPlans) {
+    const typed = raw as Partial<AppState>;
+    return {
+      version: 2,
+      current: normalizePlan(typed.current, CURRENT_DEFAULT_TOTAL),
+      next: normalizePlan(typed.next, NEXT_DEFAULT_TOTAL),
+      updatedAt: typed.updatedAt,
+    };
+  }
+
+  const legacy = raw as LegacyPlannerState | null | undefined;
   return {
-    version: 1,
-    total,
-    sections,
-    updatedAt: raw?.updatedAt,
+    version: 2,
+    current: normalizePlan(legacy, CURRENT_DEFAULT_TOTAL),
+    next: defaultNextPlan(),
+    updatedAt: legacy?.updatedAt,
   };
 }
 
-const INITIAL_STATE: PlannerState = normalizeState({
-  version: 1,
-  total: DEFAULT_TOTAL,
-  sections: [
-    { id: makeId("slice"), name: "Core", amount: 150, color: nextColor(0) },
-    { id: makeId("slice"), name: "Buffer", amount: 75, color: nextColor(1) },
-  ],
-});
+const INITIAL_STATE: AppState = normalizeAppState(null);
 
 function cls(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -154,13 +201,14 @@ function ActionButton({
   );
 }
 
-function MiniStat({ title, value, tone = "zinc" }: { title: string; value: string; tone?: "zinc" | "cyan" | "emerald" | "amber" | "rose" }) {
+function MiniStat({ title, value, tone = "zinc" }: { title: string; value: string; tone?: "zinc" | "cyan" | "emerald" | "amber" | "rose" | "violet" }) {
   const tones = {
     zinc: "border-zinc-800 bg-zinc-950/70",
     cyan: "border-cyan-900/70 bg-cyan-950/35",
     emerald: "border-emerald-900/70 bg-emerald-950/35",
     amber: "border-amber-900/70 bg-amber-950/35",
     rose: "border-rose-900/70 bg-rose-950/35",
+    violet: "border-violet-900/70 bg-violet-950/35",
   };
 
   return (
@@ -192,6 +240,20 @@ function MobileNavButton({ active, children, onClick }: { active: boolean; child
       className={cls(
         "rounded-2xl px-3 py-3 text-xs uppercase tracking-[0.16em] transition",
         active ? "bg-zinc-100 text-zinc-950" : "border border-zinc-800 bg-zinc-900 text-zinc-300"
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function PlanButton({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={cls(
+        "rounded-2xl border px-3 py-2 text-xs uppercase tracking-[0.16em] transition",
+        active ? "border-cyan-200 bg-cyan-100 text-zinc-950" : "border-zinc-800 bg-zinc-950/70 text-zinc-300"
       )}
     >
       {children}
@@ -408,16 +470,17 @@ function SliceEditor({
 }
 
 export default function App() {
-  const [state, setState] = useState<PlannerState>(INITIAL_STATE);
+  const [state, setState] = useState<AppState>(INITIAL_STATE);
   const [tab, setTab] = useState<MobileTab>("chart");
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [plan, setPlan] = useState<PlanKey>("current");
+  const [activeIndices, setActiveIndices] = useState<Record<PlanKey, number>>({ current: 0, next: 0 });
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return;
-      setState(normalizeState(JSON.parse(raw) as Partial<PlannerState>));
+      setState(normalizeAppState(JSON.parse(raw) as Partial<AppState> | LegacyPlannerState));
     } catch {
       // ignore bad local storage
     }
@@ -429,55 +492,77 @@ export default function App() {
   }, [state]);
 
   useEffect(() => {
-    if (!state.sections.length) {
-      setActiveIndex(0);
+    const sections = state[plan].sections;
+    if (!sections.length) {
+      setActiveIndices((prev) => ({ ...prev, [plan]: 0 }));
       return;
     }
-    if (activeIndex > state.sections.length - 1) {
-      setActiveIndex(state.sections.length - 1);
+    if (activeIndices[plan] > sections.length - 1) {
+      setActiveIndices((prev) => ({ ...prev, [plan]: sections.length - 1 }));
     }
-  }, [state.sections.length, activeIndex]);
+  }, [state, plan, activeIndices]);
 
-  const allocated = useMemo(() => state.sections.reduce((sum, section) => sum + section.amount, 0), [state.sections]);
-  const remaining = useMemo(() => Number((state.total - allocated).toFixed(2)), [state.total, allocated]);
+  const activePie = state[plan];
+  const allocated = useMemo(() => activePie.sections.reduce((sum, section) => sum + section.amount, 0), [activePie]);
+  const remaining = useMemo(() => Number((activePie.total - allocated).toFixed(2)), [activePie.total, allocated]);
   const overAllocated = remaining < 0;
-  const currentSection = state.sections[activeIndex] || null;
+  const activeIndex = activeIndices[plan] || 0;
+  const currentSection = activePie.sections[activeIndex] || null;
 
-  const updateSection = (id: string, patch: Partial<Slice>) => {
+  const updatePlan = (planKey: PlanKey, updater: (pie: PiePlan) => PiePlan) => {
     setState((prev) => ({
       ...prev,
-      sections: prev.sections.map((section) => (section.id === id ? { ...section, ...patch } : section)),
+      [planKey]: updater(prev[planKey]),
     }));
   };
 
-  const addSection = () => {
-    setState((prev) => {
-      const nextSections = [
-        ...prev.sections,
+  const updateSection = (planKey: PlanKey, id: string, patch: Partial<Slice>) => {
+    updatePlan(planKey, (pie) => ({
+      ...pie,
+      sections: pie.sections.map((section) => (section.id === id ? { ...section, ...patch } : section)),
+    }));
+  };
+
+  const addSection = (planKey: PlanKey) => {
+    const nextIndex = state[planKey].sections.length;
+    updatePlan(planKey, (pie) => ({
+      ...pie,
+      sections: [
+        ...pie.sections,
         {
           id: makeId("slice"),
-          name: `Section ${prev.sections.length + 1}`,
+          name: `Section ${pie.sections.length + 1}`,
           amount: 0,
-          color: nextColor(prev.sections.length),
+          color: nextColor(pie.sections.length),
         },
-      ];
-      return { ...prev, sections: nextSections };
-    });
-    setActiveIndex(state.sections.length);
+      ],
+    }));
+    setActiveIndices((prev) => ({ ...prev, [planKey]: nextIndex }));
+    setPlan(planKey);
     setTab("edit");
   };
 
-  const deleteSection = (id: string) => {
+  const deleteSection = (planKey: PlanKey, id: string) => {
+    updatePlan(planKey, (pie) => ({
+      ...pie,
+      sections: pie.sections.filter((section) => section.id !== id),
+    }));
+  };
+
+  const clearNextPlan = () => {
     setState((prev) => ({
       ...prev,
-      sections: prev.sections.filter((section) => section.id !== id),
+      next: { total: 0, sections: [] },
     }));
+    setActiveIndices((prev) => ({ ...prev, next: 0 }));
+    setPlan("next");
+    setTab("chart");
   };
 
   const exportState = () => {
     const d = new Date();
     const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}_${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}${String(d.getSeconds()).padStart(2, "0")}`;
-    const payload = JSON.stringify({ ...state, version: 1, updatedAt: new Date().toISOString() }, null, 2);
+    const payload = JSON.stringify({ ...state, version: 2, updatedAt: new Date().toISOString() }, null, 2);
     const blob = new Blob([payload], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -494,9 +579,9 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const parsed = JSON.parse(String(reader.result)) as Partial<PlannerState>;
-        setState(normalizeState(parsed));
-        setActiveIndex(0);
+        const parsed = JSON.parse(String(reader.result)) as Partial<AppState> | LegacyPlannerState;
+        setState(normalizeAppState(parsed));
+        setActiveIndices({ current: 0, next: 0 });
       } catch {
         alert("That JSON file could not be read.");
       }
@@ -508,7 +593,8 @@ export default function App() {
 
   const resetPlanner = () => {
     setState(INITIAL_STATE);
-    setActiveIndex(0);
+    setActiveIndices({ current: 0, next: 0 });
+    setPlan("current");
     setTab("chart");
   };
 
@@ -526,13 +612,14 @@ export default function App() {
         <header className="shrink-0 rounded-[30px] border border-zinc-800 bg-zinc-900/72 p-4 shadow-2xl shadow-black/25 backdrop-blur-sm md:p-6">
           <div className="mb-3 flex flex-wrap gap-2">
             <span className="rounded-full border border-zinc-700 bg-zinc-950/70 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-300">Fidelity pie planner</span>
-            <span className="rounded-full border border-cyan-900/70 bg-cyan-950/35 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-cyan-100">No-scroll mobile layout</span>
+            <span className="rounded-full border border-cyan-900/70 bg-cyan-950/35 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-cyan-100">Current + next</span>
+            <span className="rounded-full border border-zinc-800 bg-zinc-950/70 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-400">No auto merge</span>
           </div>
           <div className="flex items-start justify-between gap-3">
             <div>
               <h1 className="text-2xl font-semibold tracking-tight text-zinc-50 md:text-4xl">See Fidelity as editable pieces.</h1>
               <p className="mt-2 text-sm leading-6 text-zinc-400 md:max-w-2xl">
-                Total at the top. Manual slices. JSON out and back in. On phone, editing lives in tabs instead of a long scroll.
+                Current pie stays manual. Next pie is separate planning only. Export and import keep both.
               </p>
             </div>
             <div className="hidden shrink-0 gap-2 md:flex">
@@ -541,26 +628,33 @@ export default function App() {
               <TabButton active={tab === "tools"} onClick={() => setTab("tools")}>Tools</TabButton>
             </div>
           </div>
+          <div className="mt-3 flex gap-2">
+            <PlanButton active={plan === "current"} onClick={() => setPlan("current")}>Current Fidelity</PlanButton>
+            <PlanButton active={plan === "next"} onClick={() => setPlan("next")}>Next Paycheck</PlanButton>
+          </div>
         </header>
 
         <div className="mt-3 grid shrink-0 grid-cols-3 gap-2 md:mt-4 md:grid-cols-4 md:gap-3">
-          <MiniStat title="Total" value={formatMoney(state.total)} tone="cyan" />
+          <MiniStat title="Active pie" value={plan === "current" ? "Current" : "Next"} tone={plan === "current" ? "cyan" : "violet"} />
+          <MiniStat title="Total" value={formatMoney(activePie.total)} tone="cyan" />
           <MiniStat title="Allocated" value={formatMoney(allocated)} tone="emerald" />
-          <MiniStat title="Remaining" value={formatMoney(Math.max(0, remaining))} tone={overAllocated ? "amber" : "zinc"} />
           <div className="hidden md:block">
-            <MiniStat title="Status" value={overAllocated ? "Over" : "Balanced"} tone={overAllocated ? "rose" : "emerald"} />
+            <MiniStat title="Remaining" value={formatMoney(Math.max(0, remaining))} tone={overAllocated ? "amber" : "zinc"} />
           </div>
         </div>
 
         <main className="mt-3 min-h-0 flex-1 md:mt-4">
           {tab === "chart" ? (
-            <Panel title="Visual split" sub="Top slices plus automatic remaining.">
+            <Panel
+              title={plan === "current" ? "Current Fidelity" : "Next paycheck plan"}
+              sub={plan === "current" ? "Manual current-money view." : "Separate future plan with no effect on current."}
+            >
               <div className="flex h-full flex-col justify-between gap-4 md:flex-row md:items-center md:gap-6">
                 <div className="flex items-center justify-center">
-                  <DonutChart total={state.total} sections={state.sections} size={190} />
+                  <DonutChart total={activePie.total} sections={activePie.sections} size={190} />
                 </div>
                 <div className="min-h-0 flex-1">
-                  <SummaryList total={state.total} sections={state.sections} />
+                  <SummaryList total={activePie.total} sections={activePie.sections} />
                 </div>
               </div>
             </Panel>
@@ -568,41 +662,45 @@ export default function App() {
 
           {tab === "edit" ? (
             <Panel
-              title="Edit sections"
+              title={plan === "current" ? "Edit current sections" : "Edit next-plan sections"}
               sub="One section at a time so phone stays on one screen."
-              right={<div className="rounded-full border border-zinc-800 bg-zinc-950/70 px-3 py-1 text-xs uppercase tracking-[0.16em] text-zinc-400">{state.sections.length} total</div>}
+              right={<div className="rounded-full border border-zinc-800 bg-zinc-950/70 px-3 py-1 text-xs uppercase tracking-[0.16em] text-zinc-400">{activePie.sections.length} total</div>}
             >
               <SliceEditor
                 section={currentSection}
-                total={state.total}
+                total={activePie.total}
                 index={activeIndex}
-                count={state.sections.length}
-                onChange={(patch) => currentSection && updateSection(currentSection.id, patch)}
-                onDelete={() => currentSection && deleteSection(currentSection.id)}
-                onPrev={() => setActiveIndex((prev) => (state.sections.length ? (prev - 1 + state.sections.length) % state.sections.length : 0))}
-                onNext={() => setActiveIndex((prev) => (state.sections.length ? (prev + 1) % state.sections.length : 0))}
-                onAdd={addSection}
+                count={activePie.sections.length}
+                onChange={(patch) => currentSection && updateSection(plan, currentSection.id, patch)}
+                onDelete={() => currentSection && deleteSection(plan, currentSection.id)}
+                onPrev={() => setActiveIndices((prev) => ({ ...prev, [plan]: activePie.sections.length ? (prev[plan] - 1 + activePie.sections.length) % activePie.sections.length : 0 }))}
+                onNext={() => setActiveIndices((prev) => ({ ...prev, [plan]: activePie.sections.length ? (prev[plan] + 1) % activePie.sections.length : 0 }))}
+                onAdd={() => addSection(plan)}
               />
             </Panel>
           ) : null}
 
           {tab === "tools" ? (
-            <Panel title="Tools" sub="Set the top-line amount and move JSON between devices.">
+            <Panel title={plan === "current" ? "Current tools" : "Next-plan tools"} sub="Set the total and move JSON between devices.">
               <div className="grid h-full content-start gap-3">
                 <div>
-                  <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Fidelity total</div>
-                  <MoneyInput value={String(state.total)} onChange={(e) => setState((prev) => ({ ...prev, total: parseMoney(e.target.value) }))} />
+                  <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">{plan === "current" ? "Current total" : "Next paycheck total"}</div>
+                  <MoneyInput value={String(activePie.total)} onChange={(e) => updatePlan(plan, (pie) => ({ ...pie, total: parseMoney(e.target.value) }))} />
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
-                  <ActionButton onClick={addSection} variant="primary">Add section</ActionButton>
+                  <ActionButton onClick={() => addSection(plan)} variant="primary">Add section</ActionButton>
                   <ActionButton onClick={exportState}>Export JSON</ActionButton>
                   <ActionButton onClick={() => fileRef.current?.click()}>Import JSON</ActionButton>
-                  <ActionButton onClick={resetPlanner} variant="ghost">Reset</ActionButton>
+                  <ActionButton onClick={resetPlanner} variant="ghost">Reset all</ActionButton>
                 </div>
 
+                {plan === "next" ? (
+                  <ActionButton onClick={clearNextPlan} variant="ghost" className="w-full">Clear next pie</ActionButton>
+                ) : null}
+
                 <div className="grid grid-cols-2 gap-2">
-                  <MiniStat title="Sections" value={String(state.sections.length)} />
+                  <MiniStat title="Sections" value={String(activePie.sections.length)} />
                   <MiniStat title="Status" value={overAllocated ? "Over" : "Balanced"} tone={overAllocated ? "rose" : "emerald"} />
                 </div>
 
