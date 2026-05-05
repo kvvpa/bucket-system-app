@@ -44,6 +44,7 @@ type LegacyPlannerState = {
 
 type MobileTab = "chart" | "edit" | "tools";
 type PlanKey = "current" | "next";
+type AmountAction = "set" | "add" | "subtract";
 
 type ChartSegment = {
   id: string;
@@ -212,7 +213,15 @@ function cls(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
 }
 
-function MoneyInput({ value, onChange }: { value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void }) {
+function MoneyInput({
+  value,
+  onChange,
+  placeholder = "0",
+}: {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  placeholder?: string;
+}) {
   const [draft, setDraft] = useState(value);
   const [focused, setFocused] = useState(false);
 
@@ -235,6 +244,7 @@ function MoneyInput({ value, onChange }: { value: string; onChange: (e: React.Ch
           onChange(e);
         }}
         inputMode="decimal"
+        placeholder={placeholder}
         className="w-full bg-transparent text-right text-zinc-100 outline-none placeholder:text-zinc-600"
       />
     </div>
@@ -426,9 +436,7 @@ function DonutChart({ total, sections, size = 186 }: { total: number; sections: 
 
 function SummaryList({ total, sections }: { total: number; sections: Slice[] }) {
   const chart = buildChartState(total, sections);
-  const top = chart.template
-    ? chart.segments.slice(0, 3)
-    : chart.segments.slice(0, 4);
+  const top = chart.template ? chart.segments.slice(0, 3) : chart.segments.slice(0, 4);
   const hiddenCount = Math.max(0, chart.segments.length - top.length);
 
   return (
@@ -462,7 +470,8 @@ function SliceEditor({
   onDelete,
   onPrev,
   onNext,
-  onAdd,
+  onAddSection,
+  onAmountAction,
 }: {
   section: Slice | null;
   total: number;
@@ -472,13 +481,20 @@ function SliceEditor({
   onDelete: () => void;
   onPrev: () => void;
   onNext: () => void;
-  onAdd: () => void;
+  onAddSection: () => void;
+  onAmountAction: (action: AmountAction, value: string) => void;
 }) {
+  const [amountDraft, setAmountDraft] = useState("");
+
+  useEffect(() => {
+    setAmountDraft("");
+  }, [section?.id]);
+
   if (!section) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 rounded-[26px] border border-dashed border-zinc-800 bg-zinc-950/60 p-6 text-center text-sm text-zinc-400">
         <div>No sections yet.</div>
-        <ActionButton onClick={onAdd} variant="primary">Add section</ActionButton>
+        <ActionButton onClick={onAddSection} variant="primary">New section</ActionButton>
       </div>
     );
   }
@@ -518,8 +534,13 @@ function SliceEditor({
           </div>
 
           <div>
-            <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Amount</div>
-            <MoneyInput value={String(section.amount)} onChange={(e) => onChange({ amount: parseMoney(e.target.value) })} />
+            <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Amount tool</div>
+            <MoneyInput value={amountDraft} onChange={(e) => setAmountDraft(e.target.value)} placeholder="Enter value" />
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              <ActionButton onClick={() => onAmountAction("set", amountDraft)} disabled={!amountDraft}>Change</ActionButton>
+              <ActionButton onClick={() => onAmountAction("add", amountDraft)} disabled={!amountDraft}>Add</ActionButton>
+              <ActionButton onClick={() => onAmountAction("subtract", amountDraft)} disabled={!amountDraft}>Subtract</ActionButton>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -530,8 +551,8 @@ function SliceEditor({
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        <ActionButton onClick={onAdd} variant="primary">Add</ActionButton>
-        <ActionButton onClick={onDelete} variant="ghost">Delete</ActionButton>
+        <ActionButton onClick={onAddSection} variant="primary">New section</ActionButton>
+        <ActionButton onClick={onDelete} variant="ghost">Delete section</ActionButton>
       </div>
     </div>
   );
@@ -594,6 +615,21 @@ export default function App() {
     updatePlan(planKey, (pie) => ({
       ...pie,
       sections: pie.sections.map((section) => (section.id === id ? { ...section, ...patch } : section)),
+    }));
+  };
+
+  const applyAmountAction = (planKey: PlanKey, id: string, action: AmountAction, rawValue: string) => {
+    const amount = parseMoney(rawValue);
+    if (amount <= 0 && rawValue !== "0" && rawValue !== "0.00") return;
+
+    updatePlan(planKey, (pie) => ({
+      ...pie,
+      sections: pie.sections.map((section) => {
+        if (section.id !== id) return section;
+        if (action === "set") return { ...section, amount };
+        if (action === "add") return { ...section, amount: parseMoney(section.amount + amount) };
+        return { ...section, amount: parseMoney(Math.max(0, section.amount - amount)) };
+      }),
     }));
   };
 
@@ -769,7 +805,8 @@ export default function App() {
                     [plan]: activePie.sections.length ? (prev[plan] + 1) % activePie.sections.length : 0,
                   }))
                 }
-                onAdd={() => addSection(plan)}
+                onAddSection={() => addSection(plan)}
+                onAmountAction={(action, value) => currentSection && applyAmountAction(plan, currentSection.id, action, value)}
               />
             </Panel>
           ) : null}
@@ -783,7 +820,7 @@ export default function App() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
-                  <ActionButton onClick={() => addSection(plan)} variant="primary">Add section</ActionButton>
+                  <ActionButton onClick={() => addSection(plan)} variant="primary">New section</ActionButton>
                   <ActionButton onClick={exportState}>Export JSON</ActionButton>
                   <ActionButton onClick={() => fileRef.current?.click()}>Import JSON</ActionButton>
                   <ActionButton onClick={resetPlanner} variant="ghost">Reset all</ActionButton>
