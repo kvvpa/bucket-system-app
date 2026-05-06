@@ -17,11 +17,29 @@ const SLICE_COLORS = [
   "#9d7144",
 ];
 
+type ToppingKind = "cheese" | "pepperoni" | "basil" | "mushroom" | "olive" | "pepper" | "onion";
+
+const TOPPING_OPTIONS: Array<{ value: ToppingKind; label: string }> = [
+  { value: "cheese", label: "Cheese" },
+  { value: "pepperoni", label: "Pepperoni" },
+  { value: "basil", label: "Basil" },
+  { value: "mushroom", label: "Mushroom" },
+  { value: "olive", label: "Olive" },
+  { value: "pepper", label: "Pepper" },
+  { value: "onion", label: "Onion" },
+];
+
+function normalizeTopping(value: unknown, index: number): ToppingKind {
+  const fallback = TOPPING_OPTIONS[index % TOPPING_OPTIONS.length].value;
+  return TOPPING_OPTIONS.some((option) => option.value === value) ? (value as ToppingKind) : fallback;
+}
+
 type Slice = {
   id: string;
   name: string;
   amount: number;
   color: string;
+  topping?: ToppingKind;
 };
 
 type PiePlan = {
@@ -54,6 +72,7 @@ type ChartSegment = {
   value: number;
   amount: number;
   color: string;
+  topping: ToppingKind;
 };
 
 type ChartState = {
@@ -103,8 +122,8 @@ function cloneSections(sections: Slice[]): Slice[] {
 
 function starterSections(): Slice[] {
   return [
-    { id: makeId("slice"), name: "Emergency Fund", amount: 0, color: nextColor(0) },
-    { id: makeId("slice"), name: "Unassigned", amount: 0, color: nextColor(2) },
+    { id: makeId("slice"), name: "Emergency Fund", amount: 0, color: nextColor(0), topping: "pepperoni" },
+    { id: makeId("slice"), name: "Unassigned", amount: 0, color: nextColor(2), topping: "cheese" },
   ];
 }
 
@@ -116,6 +135,7 @@ function normalizePlan(raw: Partial<PiePlan> | null | undefined, fallbackTotal: 
     name: section.name || `Section ${index + 1}`,
     amount: parseMoney(section.amount ?? 0),
     color: typeof section.color === "string" && section.color ? section.color : nextColor(index),
+    topping: normalizeTopping((section as Partial<Slice>).topping, index),
   }));
 
   return { total, sections };
@@ -169,12 +189,13 @@ function buildChartState(total: number, sections: Slice[]): ChartState {
 
   if (total <= 0 && allocated <= 0 && sections.length > 0) {
     return {
-      segments: sections.map((section) => ({
+      segments: sections.map((section, index) => ({
         id: section.id,
         label: section.name,
         value: 1,
         amount: 0,
         color: section.color,
+        topping: normalizeTopping(section.topping, index),
       })),
       allocated: 0,
       remaining: 0,
@@ -184,15 +205,16 @@ function buildChartState(total: number, sections: Slice[]): ChartState {
   }
 
   const segments: ChartSegment[] = [
-    ...positiveSections.map((section) => ({
+    ...positiveSections.map((section, index) => ({
       id: section.id,
       label: section.name,
       value: section.amount,
       amount: section.amount,
       color: section.color,
+      topping: normalizeTopping(section.topping, index),
     })),
     ...(remaining > 0
-      ? [{ id: "remaining", label: "Remaining", value: remaining, amount: remaining, color: "#2b2724" }]
+      ? [{ id: "remaining", label: "Remaining", value: remaining, amount: remaining, color: "#2b2724", topping: "cheese" as ToppingKind }]
       : []),
   ];
 
@@ -348,12 +370,12 @@ function PizzaIcon({ className = "h-14 w-14" }: { className?: string }) {
           <stop offset="100%" stopColor="#b7702f" />
         </linearGradient>
         <linearGradient id="cheeseGradient" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor="#f7df8a" />
+          <stop offset="0%" stopColor="#ffe89a" />
           <stop offset="100%" stopColor="#e4b23a" />
         </linearGradient>
         <linearGradient id="sauceGradient" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor="#cf4e24" />
-          <stop offset="100%" stopColor="#9f3117" />
+          <stop offset="0%" stopColor="#c64a22" />
+          <stop offset="100%" stopColor="#8f2f17" />
         </linearGradient>
       </defs>
 
@@ -363,23 +385,19 @@ function PizzaIcon({ className = "h-14 w-14" }: { className?: string }) {
       <circle cx="48" cy="48" r="31" fill="none" stroke="url(#crustGradient)" strokeWidth="10" />
       <circle cx="48" cy="48" r="25" fill="none" stroke="url(#sauceGradient)" strokeWidth="4" opacity="0.9" />
       <circle cx="48" cy="48" r="23" fill="url(#cheeseGradient)" />
-      <circle cx="48" cy="48" r="23" fill="none" stroke="#fff2b8" strokeWidth="1.2" opacity="0.4" />
+
+      <g stroke="#7b5225" strokeWidth="2.4" strokeLinecap="round" opacity="0.8">
+        <path d="M48 25.5v10" />
+        <path d="M70.5 48h-10" />
+        <path d="M37.2 68.3l5-8.6" />
+        <path d="M27.5 37.2l8.7 5" />
+      </g>
 
       <circle cx="48" cy="48" r="12.5" fill="#0b0b0c" />
       <circle cx="48" cy="48" r="13.5" fill="none" stroke="#3b2a1e" strokeWidth="2" />
 
-      <g stroke="#7b5225" strokeWidth="2.4" strokeLinecap="round" opacity="0.82">
-        <path d="M48 35.5 L48 25.5" />
-        <path d="M60.5 48 L70.5 48" />
-        <path d="M42.2 59.8 L37.1 68.4" />
-        <path d="M36.1 42.2 L27.5 37.1" />
-      </g>
-
-      <path d="M35 33c3.1-4 8.2-4 11.2 0c-0.9 5.1-4.2 8.2-9.2 9.2c-4-2.8-4.2-6.1-2-9.2Z" fill="#6ba73a" stroke="#416723" strokeWidth="1" />
-      <path d="M60 59.8c2.7-3.5 7.3-3.5 9.8 0c-0.7 2.3-3 3.8-4.9 3.8s-4.1-1.5-4.9-3.8Z" fill="#eadcc8" stroke="#b08967" strokeWidth="1.1" />
-      <path d="M64.8 63.6v4.4" stroke="#b08967" strokeWidth="1.1" strokeLinecap="round" />
-      <circle cx="59.5" cy="38.5" r="3.8" fill="#b63c2a" stroke="#8a281c" strokeWidth="1.1" />
-      <circle cx="64.4" cy="42.2" r="2.8" fill="#b63c2a" stroke="#8a281c" strokeWidth="1" />
+      <circle cx="61.5" cy="38.5" r="3.5" fill="#b63c2a" stroke="#8a281c" strokeWidth="1" />
+      <circle cx="35" cy="55" r="3.1" fill="#b63c2a" stroke="#8a281c" strokeWidth="1" />
     </svg>
   );
 }
@@ -409,11 +427,20 @@ function polarPoint(angle: number, distance: number) {
 function renderPizzaTopping(kind: string, x: number, y: number, scale = 1, rotate = 0, key: string) {
   const transform = `translate(${x} ${y}) rotate(${rotate}) scale(${scale})`;
 
+  if (kind === "cheese") {
+    return (
+      <g key={key} transform={transform} opacity="0.8">
+        <circle cx="-4" cy="-1" r="2.3" fill="#fff3b8" />
+        <circle cx="4" cy="3" r="1.8" fill="#f4c55a" />
+      </g>
+    );
+  }
+
   if (kind === "basil") {
     return (
       <g key={key} transform={transform}>
-        <path d="M-1 -8C4 -9 8 -5 8 0C7 6 2 9 -4 10C-9 6 -10 1 -9 -4C-7 -6 -4 -7 -1 -8Z" fill="#6ba73a" stroke="#416723" strokeWidth="1.3" />
-        <path d="M-2 8C0 4 2 -1 4 -6" fill="none" stroke="#547f33" strokeWidth="1" strokeLinecap="round" />
+        <path d="M-2 -10C5 -10 10 -5 10 1C9 8 2 12 -6 11C-11 6 -11 0 -8 -5C-6 -8 -4 -9 -2 -10Z" fill="#6ba73a" stroke="#416723" strokeWidth="1.4" />
+        <path d="M-4 8C-1 3 2 -2 5 -7" fill="none" stroke="#547f33" strokeWidth="1" strokeLinecap="round" />
       </g>
     );
   }
@@ -421,8 +448,8 @@ function renderPizzaTopping(kind: string, x: number, y: number, scale = 1, rotat
   if (kind === "mushroom") {
     return (
       <g key={key} transform={transform}>
-        <path d="M-8 -1C-5 -6 5 -6 8 -1C6 3 2 5 0 5C-2 5 -6 3 -8 -1Z" fill="#eadcc8" stroke="#b08967" strokeWidth="1.4" />
-        <path d="M0 5V11" fill="none" stroke="#b08967" strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M-10 -2C-6 -8 6 -8 10 -2C8 3 3 6 0 6C-3 6 -8 3 -10 -2Z" fill="#eadcc8" stroke="#a77c5d" strokeWidth="1.5" />
+        <path d="M0 6V13" fill="none" stroke="#a77c5d" strokeWidth="1.8" strokeLinecap="round" />
       </g>
     );
   }
@@ -430,10 +457,10 @@ function renderPizzaTopping(kind: string, x: number, y: number, scale = 1, rotat
   if (kind === "olive") {
     return (
       <g key={key} transform={transform}>
-        <circle cx="-4" cy="0" r="4.3" fill="#47433f" stroke="#22201d" strokeWidth="1.1" />
-        <circle cx="-4" cy="0" r="1.8" fill="#f0d778" />
-        <circle cx="5" cy="4" r="3.8" fill="#47433f" stroke="#22201d" strokeWidth="1.1" />
-        <circle cx="5" cy="4" r="1.5" fill="#f0d778" />
+        <circle cx="-5" cy="-1" r="5" fill="#45413c" stroke="#1f1d1b" strokeWidth="1.2" />
+        <circle cx="-5" cy="-1" r="2" fill="#f0d778" />
+        <circle cx="6" cy="4" r="4.4" fill="#45413c" stroke="#1f1d1b" strokeWidth="1.2" />
+        <circle cx="6" cy="4" r="1.7" fill="#f0d778" />
       </g>
     );
   }
@@ -441,8 +468,8 @@ function renderPizzaTopping(kind: string, x: number, y: number, scale = 1, rotat
   if (kind === "pepper") {
     return (
       <g key={key} transform={transform}>
-        <path d="M-9 -2C-2 -10 5 -10 10 -4" fill="none" stroke="#6aa84f" strokeWidth="2.3" strokeLinecap="round" />
-        <path d="M-7 5C0 -3 7 -3 10 2" fill="none" stroke="#6aa84f" strokeWidth="2.3" strokeLinecap="round" />
+        <path d="M-11 -3C-4 -11 5 -11 11 -5" fill="none" stroke="#6aa84f" strokeWidth="2.8" strokeLinecap="round" />
+        <path d="M-9 6C-2 -2 7 -2 11 3" fill="none" stroke="#6aa84f" strokeWidth="2.8" strokeLinecap="round" />
       </g>
     );
   }
@@ -450,37 +477,46 @@ function renderPizzaTopping(kind: string, x: number, y: number, scale = 1, rotat
   if (kind === "onion") {
     return (
       <g key={key} transform={transform}>
-        <path d="M-8 3C-6 -4 5 -4 8 3" fill="none" stroke="#d6bfd6" strokeWidth="2" strokeLinecap="round" />
-        <path d="M-4 6C-2 0 2 0 5 6" fill="none" stroke="#e6d3e6" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M-10 3C-7 -5 6 -5 10 3" fill="none" stroke="#d7bedb" strokeWidth="2.5" strokeLinecap="round" />
+        <path d="M-5 7C-2 0 3 0 6 7" fill="none" stroke="#ead9ee" strokeWidth="2.2" strokeLinecap="round" />
       </g>
     );
   }
 
   return (
     <g key={key} transform={transform}>
-      <circle cx="-3" cy="-1" r="4.4" fill="#b63c2a" stroke="#8a281c" strokeWidth="1.2" />
-      <circle cx="4.5" cy="3.5" r="3.4" fill="#b63c2a" stroke="#8a281c" strokeWidth="1.1" />
-      <circle cx="-3" cy="-1" r="1.1" fill="#d97766" opacity="0.65" />
-      <circle cx="4.5" cy="3.5" r="0.9" fill="#d97766" opacity="0.65" />
+      <circle cx="-4" cy="-1" r="5.2" fill="#b63c2a" stroke="#8a281c" strokeWidth="1.2" />
+      <circle cx="5.5" cy="4" r="4" fill="#b63c2a" stroke="#8a281c" strokeWidth="1.1" />
+      <circle cx="-4" cy="-1" r="1.2" fill="#d97766" opacity="0.65" />
+      <circle cx="5.5" cy="4" r="1" fill="#d97766" opacity="0.65" />
     </g>
   );
 }
 
-function buildToppingPlacement(index: number, angle: number, span: number) {
-  const kind = ["pepperoni", "basil", "mushroom", "olive", "pepper", "onion"][index % 6];
-  const anchors =
-    span < 0.55
-      ? [{ ...polarPoint(angle, 56), scale: 0.8, rotate: (angle * 180) / Math.PI + 90 }]
-      : span < 1.05
-        ? [
-            { ...polarPoint(angle - 0.12, 54), scale: 0.82, rotate: (angle * 180) / Math.PI + 55 },
-            { ...polarPoint(angle + 0.12, 60), scale: 0.72, rotate: (angle * 180) / Math.PI + 125 },
-          ]
-        : [
-            { ...polarPoint(angle - 0.2, 53), scale: 0.82, rotate: (angle * 180) / Math.PI + 40 },
-            { ...polarPoint(angle, 60), scale: 0.78, rotate: (angle * 180) / Math.PI + 100 },
-            { ...polarPoint(angle + 0.2, 54), scale: 0.72, rotate: (angle * 180) / Math.PI + 145 },
-          ];
+function ToppingBadge({ topping }: { topping: ToppingKind }) {
+  return (
+    <svg viewBox="0 0 40 40" className="h-8 w-8 shrink-0" aria-hidden="true">
+      <circle cx="20" cy="20" r="17" fill="#17110d" stroke="#4a2f17" strokeWidth="2" />
+      {renderPizzaTopping(topping, 20, 18, 0.95, topping === "pepperoni" ? 0 : -12, "badge")}
+    </svg>
+  );
+}
+
+function buildToppingPlacement(kind: ToppingKind, angle: number, span: number) {
+  const count = span > Math.PI ? 6 : span > 1.6 ? 4 : span > 0.75 ? 3 : span > 0.3 ? 2 : 1;
+  const spread = Math.min(span * 0.72, 2.25);
+  const anchors = Array.from({ length: count }, (_, index) => {
+    const centered = index - (count - 1) / 2;
+    const itemAngle = angle + (count === 1 ? 0 : (centered * spread) / Math.max(1, count - 1));
+    const distance = [53, 61, 56, 64, 50, 59][index % 6];
+    const scale = count > 4 ? 0.72 : count > 2 ? 0.8 : 0.88;
+
+    return {
+      ...polarPoint(itemAngle, distance),
+      scale,
+      rotate: (itemAngle * 180) / Math.PI + 90,
+    };
+  });
 
   return { kind, anchors };
 }
@@ -519,7 +555,7 @@ function DonutChart({ total, sections, size = 220 }: { total: number; sections: 
           const midAngle = ((start + segment.value / 2) / chart.chartTotal) * Math.PI * 2 - Math.PI / 2;
           return {
             key: segment.id,
-            ...buildToppingPlacement(index, midAngle, span),
+            ...buildToppingPlacement(segment.topping, midAngle, span),
           };
         })
       : [];
@@ -603,10 +639,12 @@ function SummaryList({ total, sections }: { total: number; sections: Slice[] }) 
         return (
           <div key={item.id} className="flex items-center justify-between gap-3 rounded-2xl border border-amber-500/10 bg-zinc-950/55 px-3 py-2.5">
             <div className="flex items-center gap-3">
-              <div className="h-3.5 w-3.5 rounded-full border border-white/10" style={{ backgroundColor: item.color }} />
+              <ToppingBadge topping={item.topping} />
               <div>
                 <div className="text-sm font-medium text-zinc-100">{item.label}</div>
-                <div className="text-xs text-zinc-500">{chart.template ? "Template" : formatPercent(percent)}</div>
+                <div className="text-xs text-zinc-500">
+                  {TOPPING_OPTIONS.find((option) => option.value === item.topping)?.label ?? "Cheese"} - {chart.template ? "Template" : formatPercent(percent)}
+                </div>
               </div>
             </div>
             <div className="text-sm font-medium text-zinc-100">{formatMoney(item.amount)}</div>
@@ -670,14 +708,20 @@ function SliceEditor({
 
       <div className="flex-1 rounded-[26px] border border-amber-500/15 bg-zinc-950/60 p-4 shadow-inner shadow-black/15">
         <div className="grid h-full gap-3 content-start">
-          <div className="flex items-center justify-center">
-            <input
-              type="color"
-              value={section.color}
-              onChange={(e) => onChange({ color: e.target.value })}
-              className="h-14 w-14 cursor-pointer rounded-2xl border border-amber-500/20 bg-transparent p-1"
-              aria-label={`${section.name} color`}
-            />
+          <div>
+            <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-amber-200/70">Topping</div>
+            <select
+              value={section.topping ?? "cheese"}
+              onChange={(e) => onChange({ topping: e.target.value as ToppingKind })}
+              className="w-full rounded-2xl border border-amber-500/15 bg-zinc-950/90 px-4 py-3 text-sm text-zinc-100 outline-none"
+              aria-label={`${section.name} topping`}
+            >
+              {TOPPING_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -824,6 +868,7 @@ export default function App() {
           name: `Section ${pie.sections.length + 1}`,
           amount: 0,
           color: nextColor(pie.sections.length),
+          topping: normalizeTopping(undefined, pie.sections.length),
         },
       ],
     }));
