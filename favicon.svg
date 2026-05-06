@@ -5,39 +5,27 @@
       <stop offset="100%" stop-color="#09090b"/>
     </linearGradient>
     <linearGradient id="crust" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#f7cd77"/>
-      <stop offset="100%" stop-color="#c68a3b"/>
+      <stop offset="0%" stop-color="#d6a84f"/>
+      <stop offset="100%" stop-color="#8f6530"/>
     </linearGradient>
     <linearGradient id="cheese" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#ffd867"/>
-      <stop offset="100%" stop-color="#f2ae2d"/>
+      <stop offset="0%" stop-color="#e0bf68"/>
+      <stop offset="100%" stop-color="#c99746"/>
     </linearGradient>
     <linearGradient id="sauce" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#ff8c29"/>
-      <stop offset="100%" stop-color="#ea580c"/>
+      <stop offset="0%" stop-color="#c56f32"/>
+      <stop offset="100%" stop-color="#9a4f27"/>
     </linearGradient>
-    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
-      <feGaussianBlur stdDeviation="3" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
   </defs>
 
   <rect x="7" y="7" width="82" height="82" rx="18" fill="url(#tile)"/>
-  <rect x="7" y="7" width="82" height="82" rx="18" fill="none" stroke="#f7b440" stroke-width="2.5" filter="url(#glow)"/>
+  <rect x="7" y="7" width="82" height="82" rx="18" fill="none" stroke="#d6a84f" stroke-width="1.5" opacity="0.55"/>
 
-  <circle cx="48" cy="48" r="27" fill="none" stroke="#2a2521" stroke-width="14"/>
-  <circle cx="48" cy="48" r="31" fill="none" stroke="url(#crust)" stroke-width="6"/>
-
-  <circle cx="48" cy="48" r="27" fill="none" stroke="#2b2724" stroke-width="14" stroke-dasharray="66 110" transform="rotate(-90 48 48)"/>
-  <circle cx="48" cy="48" r="27" fill="none" stroke="url(#cheese)" stroke-width="14" stroke-dasharray="60 116" stroke-dashoffset="-66" transform="rotate(-90 48 48)"/>
-  <circle cx="48" cy="48" r="27" fill="none" stroke="url(#sauce)" stroke-width="14" stroke-dasharray="40 136" stroke-dashoffset="-126" transform="rotate(-90 48 48)"/>
-
-  <circle cx="66" cy="36" r="4.2" fill="#d63f1f"/>
-  <circle cx="74" cy="44" r="3.8" fill="#cf3a1b"/>
-  <circle cx="72" cy="57" r="3.2" fill="#c92f14"/>
-  <circle cx="58" cy="67" r="4.2" fill="#cf3a1b"/>
-  <circle cx="68" cy="68" r="2.5" fill="#e45623"/>
+  <path d="M48 20a28 28 0 1 1 0 56 28 28 0 0 1 0-56Z" fill="none" stroke="url(#crust)" stroke-width="7"/>
+  <path d="M48 27a21 21 0 1 1 0 42 21 21 0 0 1 0-42Z" fill="none" stroke="#221f1d" stroke-width="15"/>
+  <path d="M48 27a21 21 0 0 1 18 10" fill="none" stroke="url(#cheese)" stroke-width="15" stroke-linecap="round"/>
+  <path d="M66 37a21 21 0 0 1-8 29" fill="none" stroke="url(#sauce)" stroke-width="15" stroke-linecap="round"/>
+  <path d="M58 66a21 21 0 0 1-28-16" fill="none" stroke="url(#cheese)" stroke-width="15" stroke-linecap="round" opacity="0.9"/>
+  <circle cx="48" cy="48" r="15" fill="#0b0b0c"/>
+  <circle cx="48" cy="48" r="16" fill="none" stroke="#312720" stroke-width="2"/>
 </svg>
