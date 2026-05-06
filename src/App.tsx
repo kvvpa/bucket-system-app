@@ -1,19 +1,20 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-const STORAGE_KEY = "joey-fidelity-pie-planner-v1";
+const STORAGE_KEY = "slice-board-v1";
+const LEGACY_STORAGE_KEYS = ["joey-fidelity-pie-planner-v1"];
 const CURRENT_DEFAULT_TOTAL = 0;
 const NEXT_DEFAULT_TOTAL = 0;
 const SLICE_COLORS = [
-  "#60a5fa",
-  "#f472b6",
-  "#34d399",
-  "#f59e0b",
-  "#a78bfa",
-  "#fb7185",
-  "#22d3ee",
-  "#4ade80",
+  "#f5c04d",
   "#f97316",
+  "#2b2724",
+  "#f59e0b",
+  "#ea580c",
+  "#d97706",
   "#facc15",
+  "#7c3f16",
+  "#f8b84e",
+  "#fb923c",
 ];
 
 type Slice = {
@@ -63,6 +64,10 @@ type ChartState = {
   template: boolean;
 };
 
+function cls(...parts: Array<string | false | null | undefined>) {
+  return parts.filter(Boolean).join(" ");
+}
+
 function makeId(prefix = "slice") {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -99,7 +104,7 @@ function cloneSections(sections: Slice[]): Slice[] {
 function starterSections(): Slice[] {
   return [
     { id: makeId("slice"), name: "Emergency Fund", amount: 0, color: nextColor(0) },
-    { id: makeId("slice"), name: "Unassigned", amount: 0, color: nextColor(1) },
+    { id: makeId("slice"), name: "Unassigned", amount: 0, color: nextColor(2) },
   ];
 }
 
@@ -126,7 +131,7 @@ function defaultNextPlan(): PiePlan {
 
 function makeFreshState(): AppState {
   return {
-    version: 7,
+    version: 8,
     current: defaultCurrentPlan(),
     next: defaultNextPlan(),
     nextEnabled: true,
@@ -139,7 +144,7 @@ function normalizeAppState(raw: Partial<AppState> | LegacyPlannerState | null | 
   if (hasDualPlans) {
     const typed = raw as Partial<AppState>;
     return {
-      version: 7,
+      version: 8,
       current: normalizePlan(typed.current, CURRENT_DEFAULT_TOTAL),
       next: normalizePlan(typed.next, NEXT_DEFAULT_TOTAL),
       nextEnabled: typed.nextEnabled ?? true,
@@ -149,7 +154,7 @@ function normalizeAppState(raw: Partial<AppState> | LegacyPlannerState | null | 
 
   const legacy = raw as LegacyPlannerState | null | undefined;
   return {
-    version: 7,
+    version: 8,
     current: normalizePlan(legacy, CURRENT_DEFAULT_TOTAL),
     next: normalizePlan({ total: NEXT_DEFAULT_TOTAL, sections: [] }, NEXT_DEFAULT_TOTAL),
     nextEnabled: true,
@@ -187,7 +192,7 @@ function buildChartState(total: number, sections: Slice[]): ChartState {
       color: section.color,
     })),
     ...(remaining > 0
-      ? [{ id: "remaining", label: "Remaining", value: remaining, amount: remaining, color: "#27272a" }]
+      ? [{ id: "remaining", label: "Remaining", value: remaining, amount: remaining, color: "#2b2724" }]
       : []),
   ];
 
@@ -202,10 +207,6 @@ function buildChartState(total: number, sections: Slice[]): ChartState {
 
 const INITIAL_STATE: AppState = makeFreshState();
 
-function cls(...parts: Array<string | false | null | undefined>) {
-  return parts.filter(Boolean).join(" ");
-}
-
 function MoneyInput({ value, onChange, placeholder = "0" }: { value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; placeholder?: string }) {
   const [draft, setDraft] = useState(value);
   const [focused, setFocused] = useState(false);
@@ -215,8 +216,8 @@ function MoneyInput({ value, onChange, placeholder = "0" }: { value: string; onC
   }, [value, focused]);
 
   return (
-    <div className="flex items-center gap-2 rounded-2xl border border-zinc-700 bg-zinc-950/90 px-3 py-2.5 text-sm text-zinc-300 shadow-inner shadow-black/20">
-      <span className="text-zinc-500">$</span>
+    <div className="flex items-center gap-2 rounded-2xl border border-amber-500/20 bg-zinc-950/90 px-3 py-2.5 text-sm text-zinc-300 shadow-inner shadow-black/20">
+      <span className="text-amber-300/70">$</span>
       <input
         value={focused ? draft : value}
         onFocus={() => {
@@ -236,10 +237,22 @@ function MoneyInput({ value, onChange, placeholder = "0" }: { value: string; onC
   );
 }
 
-function ActionButton({ children, onClick, variant = "secondary", className = "", disabled = false }: { children: React.ReactNode; onClick?: () => void; variant?: "primary" | "secondary" | "ghost"; className?: string; disabled?: boolean }) {
+function ActionButton({
+  children,
+  onClick,
+  variant = "secondary",
+  className = "",
+  disabled = false,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  variant?: "primary" | "secondary" | "ghost";
+  className?: string;
+  disabled?: boolean;
+}) {
   const variants = {
-    primary: "border-zinc-100 bg-zinc-100 text-zinc-950 hover:bg-white",
-    secondary: "border-zinc-700 bg-zinc-950/80 text-zinc-100 hover:border-zinc-500 hover:bg-zinc-900",
+    primary: "border-amber-200 bg-gradient-to-r from-amber-200 to-orange-300 text-zinc-950 hover:from-amber-100 hover:to-orange-200",
+    secondary: "border-amber-500/25 bg-zinc-950/80 text-zinc-100 hover:border-amber-400/45 hover:bg-zinc-900",
     ghost: "border-zinc-800 bg-transparent text-zinc-300 hover:border-zinc-600 hover:bg-zinc-950/60",
   };
 
@@ -258,19 +271,17 @@ function ActionButton({ children, onClick, variant = "secondary", className = ""
   );
 }
 
-function MiniStat({ title, value, tone = "zinc" }: { title: string; value: string; tone?: "zinc" | "cyan" | "emerald" | "amber" | "rose" | "violet" }) {
+function MiniStat({ title, value, tone = "zinc" }: { title: string; value: string; tone?: "zinc" | "gold" | "orange" | "rose" }) {
   const tones = {
     zinc: "border-zinc-800 bg-zinc-950/70",
-    cyan: "border-cyan-900/70 bg-cyan-950/35",
-    emerald: "border-emerald-900/70 bg-emerald-950/35",
-    amber: "border-amber-900/70 bg-amber-950/35",
-    rose: "border-rose-900/70 bg-rose-950/35",
-    violet: "border-violet-900/70 bg-violet-950/35",
+    gold: "border-amber-500/25 bg-amber-950/20",
+    orange: "border-orange-500/25 bg-orange-950/20",
+    rose: "border-rose-500/25 bg-rose-950/20",
   };
 
   return (
     <div className={cls("rounded-[22px] border px-4 py-3", tones[tone])}>
-      <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">{title}</div>
+      <div className="text-[10px] uppercase tracking-[0.2em] text-amber-300/70">{title}</div>
       <div className="mt-1 text-lg font-semibold tracking-tight text-zinc-50">{value}</div>
     </div>
   );
@@ -282,7 +293,9 @@ function TabButton({ active, children, onClick }: { active: boolean; children: R
       onClick={onClick}
       className={cls(
         "rounded-2xl border px-3 py-2 text-xs uppercase tracking-[0.16em] transition",
-        active ? "border-zinc-100 bg-zinc-100 text-zinc-950" : "border-zinc-800 bg-zinc-950/70 text-zinc-300"
+        active
+          ? "border-amber-200 bg-gradient-to-r from-amber-100 to-orange-300 text-zinc-950"
+          : "border-amber-500/20 bg-zinc-950/70 text-zinc-300"
       )}
     >
       {children}
@@ -296,7 +309,9 @@ function MobileNavButton({ active, children, onClick }: { active: boolean; child
       onClick={onClick}
       className={cls(
         "rounded-2xl px-3 py-3 text-xs uppercase tracking-[0.16em] transition",
-        active ? "bg-zinc-100 text-zinc-950" : "border border-zinc-800 bg-zinc-900 text-zinc-300"
+        active
+          ? "bg-gradient-to-r from-amber-100 to-orange-300 text-zinc-950"
+          : "border border-amber-500/20 bg-zinc-900 text-zinc-300"
       )}
     >
       {children}
@@ -310,7 +325,9 @@ function PlanButton({ active, children, onClick }: { active: boolean; children: 
       onClick={onClick}
       className={cls(
         "rounded-2xl border px-3 py-2 text-xs uppercase tracking-[0.16em] transition",
-        active ? "border-cyan-200 bg-cyan-100 text-zinc-950" : "border-zinc-800 bg-zinc-950/70 text-zinc-300"
+        active
+          ? "border-amber-200 bg-amber-100 text-zinc-950"
+          : "border-amber-500/20 bg-zinc-950/70 text-zinc-300"
       )}
     >
       {children}
@@ -318,23 +335,58 @@ function PlanButton({ active, children, onClick }: { active: boolean; children: 
   );
 }
 
-function LogoMark() {
+function PizzaIcon({ className = "h-14 w-14" }: { className?: string }) {
   return (
-    <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-[20px] border border-cyan-400/30 bg-zinc-950/90 shadow-lg shadow-cyan-950/20">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(103,232,249,0.18),transparent_58%)]" />
-      <svg viewBox="0 0 64 64" className="relative h-10 w-10">
-        <circle cx="32" cy="32" r="20" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="10" />
-        <circle cx="32" cy="32" r="20" fill="none" stroke="#67e8f9" strokeWidth="10" strokeDasharray="50 76" transform="rotate(-90 32 32)" />
-        <circle cx="32" cy="32" r="20" fill="none" stroke="#c084fc" strokeWidth="10" strokeDasharray="26 100" strokeDashoffset="-52" transform="rotate(-90 32 32)" />
-      </svg>
-    </div>
+    <svg viewBox="0 0 96 96" className={className} aria-hidden="true">
+      <defs>
+        <filter id="pizzaGlow" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="4" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+        <linearGradient id="tileGradient" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stopColor="#18181b" />
+          <stop offset="100%" stopColor="#09090b" />
+        </linearGradient>
+        <linearGradient id="crustGradient" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stopColor="#f7cd77" />
+          <stop offset="100%" stopColor="#c68a3b" />
+        </linearGradient>
+        <linearGradient id="cheeseGradient" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stopColor="#ffd867" />
+          <stop offset="100%" stopColor="#f2ae2d" />
+        </linearGradient>
+        <linearGradient id="sauceGradient" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stopColor="#ff8c29" />
+          <stop offset="100%" stopColor="#ea580c" />
+        </linearGradient>
+      </defs>
+
+      <rect x="7" y="7" width="82" height="82" rx="18" fill="url(#tileGradient)" />
+      <rect x="7" y="7" width="82" height="82" rx="18" fill="none" stroke="#f7b440" strokeWidth="2.5" filter="url(#pizzaGlow)" />
+
+      <circle cx="48" cy="48" r="27" fill="none" stroke="#2a2521" strokeWidth="14" />
+      <circle cx="48" cy="48" r="31" fill="none" stroke="url(#crustGradient)" strokeWidth="6" />
+
+      <circle cx="48" cy="48" r="27" fill="none" stroke="#2b2724" strokeWidth="14" strokeDasharray="66 110" transform="rotate(-90 48 48)" />
+      <circle cx="48" cy="48" r="27" fill="none" stroke="url(#cheeseGradient)" strokeWidth="14" strokeDasharray="60 116" strokeDashoffset="-66" transform="rotate(-90 48 48)" />
+      <circle cx="48" cy="48" r="27" fill="none" stroke="url(#sauceGradient)" strokeWidth="14" strokeDasharray="40 136" strokeDashoffset="-126" transform="rotate(-90 48 48)" />
+
+      <circle cx="66" cy="36" r="4.2" fill="#d63f1f" />
+      <circle cx="74" cy="44" r="3.8" fill="#cf3a1b" />
+      <circle cx="72" cy="57" r="3.2" fill="#c92f14" />
+      <circle cx="58" cy="67" r="4.2" fill="#cf3a1b" />
+      <circle cx="68" cy="68" r="2.5" fill="#e45623" />
+    </svg>
   );
 }
 
 function Panel({ title, children, right }: { title: string; children: React.ReactNode; right?: React.ReactNode }) {
   return (
-    <section className="relative h-full overflow-hidden rounded-[30px] border border-zinc-800/90 bg-zinc-900/68 p-4 shadow-2xl shadow-black/20 backdrop-blur-sm md:p-5">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.05),transparent_58%)]" />
+    <section className="relative h-full overflow-hidden rounded-[30px] border border-amber-500/15 bg-zinc-900/70 p-4 shadow-2xl shadow-black/25 backdrop-blur-sm md:p-5">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.09),transparent_60%)]" />
       <div className="relative flex h-full flex-col">
         <div className="mb-3 flex items-start justify-between gap-3">
           <h2 className="text-base font-semibold tracking-tight text-zinc-50">{title}</h2>
@@ -346,17 +398,32 @@ function Panel({ title, children, right }: { title: string; children: React.Reac
   );
 }
 
-function DonutChart({ total, sections, size = 186 }: { total: number; sections: Slice[]; size?: number }) {
+function PizzaToppingsOverlay() {
+  return (
+    <>
+      <div className="absolute right-[22%] top-[20%] h-4 w-4 rounded-full border border-red-400/30 bg-red-600/90 shadow-lg shadow-red-950/70" />
+      <div className="absolute right-[14%] top-[31%] h-3.5 w-3.5 rounded-full border border-red-400/30 bg-red-600/90 shadow-lg shadow-red-950/70" />
+      <div className="absolute right-[17%] top-[55%] h-3 w-3 rounded-full border border-red-400/30 bg-red-600/85 shadow-lg shadow-red-950/70" />
+      <div className="absolute left-[31%] bottom-[21%] h-4 w-4 rounded-full border border-red-400/30 bg-red-600/90 shadow-lg shadow-red-950/70" />
+      <div className="absolute left-[47%] bottom-[16%] h-3 w-3 rounded-full border border-red-400/30 bg-orange-500/80 shadow-lg shadow-orange-950/70" />
+    </>
+  );
+}
+
+function DonutChart({ total, sections, size = 220 }: { total: number; sections: Slice[]; size?: number }) {
   const chart = buildChartState(total, sections);
-  const radius = 58;
-  const stroke = 22;
+  const radius = 56;
+  const stroke = 24;
   const circumference = 2 * Math.PI * radius;
   let accumulated = 0;
 
   return (
     <div className="relative shrink-0" style={{ height: size, width: size }}>
-      <svg viewBox="0 0 160 160" className="h-full w-full">
-        <circle cx="80" cy="80" r={radius} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={stroke} />
+      <div className="absolute inset-5 rounded-full bg-orange-500/8 blur-2xl" />
+      <svg viewBox="0 0 180 180" className="relative h-full w-full drop-shadow-[0_12px_30px_rgba(0,0,0,0.45)]">
+        <circle cx="90" cy="90" r="65" fill="none" stroke="#c98b3a" strokeWidth="10" />
+        <circle cx="90" cy="90" r="64" fill="none" stroke="#f4c76b" strokeWidth="4" opacity="0.85" />
+        <circle cx="90" cy="90" r={radius} fill="none" stroke="#1b1816" strokeWidth={stroke} />
         {chart.chartTotal > 0
           ? chart.segments.map((segment) => {
               const dash = (segment.value / chart.chartTotal) * circumference;
@@ -366,30 +433,33 @@ function DonutChart({ total, sections, size = 186 }: { total: number; sections: 
               return (
                 <circle
                   key={segment.id}
-                  cx="80"
-                  cy="80"
+                  cx="90"
+                  cy="90"
                   r={radius}
                   fill="none"
                   stroke={segment.color}
                   strokeWidth={stroke}
                   strokeDasharray={`${dash} ${Math.max(0, circumference - dash)}`}
                   strokeDashoffset={-offset}
-                  transform="rotate(-90 80 80)"
+                  transform="rotate(-90 90 90)"
                 />
               );
             })
           : null}
+        <circle cx="90" cy="90" r="33" fill="#0b0b0c" />
+        <circle cx="90" cy="90" r="34" fill="none" stroke="#312720" strokeWidth="3" />
       </svg>
+      <PizzaToppingsOverlay />
       <div className="absolute inset-0 flex items-center justify-center px-5 text-center">
         {chart.template ? (
-          <div className="max-w-[110px]">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Template</div>
-            <div className="mt-2 text-xl font-semibold leading-tight tracking-tight text-zinc-50">Add values</div>
-            <div className="mt-1 text-xs leading-4 text-zinc-400">{sections.length} sections</div>
+          <div className="max-w-[120px]">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-amber-300/70">Template</div>
+            <div className="mt-2 text-xl font-semibold leading-tight tracking-tight text-zinc-50">Set amounts</div>
+            <div className="mt-1 text-xs leading-4 text-zinc-400">{sections.length} sections ready</div>
           </div>
         ) : (
-          <div className="max-w-[118px]">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Allocated</div>
+          <div className="max-w-[124px]">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-amber-300/70">Allocated</div>
             <div className="mt-2 break-words text-xl font-semibold leading-tight tracking-tight text-zinc-50">{formatMoney(chart.allocated)}</div>
             <div className="mt-1 text-xs leading-4 text-zinc-400">of {formatMoney(total)}</div>
           </div>
@@ -401,7 +471,7 @@ function DonutChart({ total, sections, size = 186 }: { total: number; sections: 
 
 function SummaryList({ total, sections }: { total: number; sections: Slice[] }) {
   const chart = buildChartState(total, sections);
-  const top = chart.template ? chart.segments.slice(0, 3) : chart.segments.slice(0, 4);
+  const top = chart.template ? chart.segments.slice(0, 4) : chart.segments.slice(0, 5);
   const hiddenCount = Math.max(0, chart.segments.length - top.length);
 
   return (
@@ -409,9 +479,9 @@ function SummaryList({ total, sections }: { total: number; sections: Slice[] }) 
       {top.map((item) => {
         const percent = chart.chartTotal > 0 ? (item.value / chart.chartTotal) * 100 : 0;
         return (
-          <div key={item.id} className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-800 bg-zinc-950/60 px-3 py-2.5">
+          <div key={item.id} className="flex items-center justify-between gap-3 rounded-2xl border border-amber-500/10 bg-zinc-950/55 px-3 py-2.5">
             <div className="flex items-center gap-3">
-              <div className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
+              <div className="h-3.5 w-3.5 rounded-full border border-white/10" style={{ backgroundColor: item.color }} />
               <div>
                 <div className="text-sm font-medium text-zinc-100">{item.label}</div>
                 <div className="text-xs text-zinc-500">{chart.template ? "Template" : formatPercent(percent)}</div>
@@ -457,7 +527,7 @@ function SliceEditor({
 
   if (!section) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-4 rounded-[26px] border border-dashed border-zinc-800 bg-zinc-950/60 p-6 text-center text-sm text-zinc-400">
+      <div className="flex h-full flex-col items-center justify-center gap-4 rounded-[26px] border border-dashed border-amber-500/20 bg-zinc-950/60 p-6 text-center text-sm text-zinc-400">
         <div>No sections yet.</div>
         <ActionButton onClick={onAddSection} variant="primary">New section</ActionButton>
       </div>
@@ -470,36 +540,36 @@ function SliceEditor({
     <div className="flex h-full flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         <ActionButton onClick={onPrev} disabled={count <= 1} className="px-3">Prev</ActionButton>
-        <div className="rounded-full border border-zinc-800 bg-zinc-950/70 px-3 py-1 text-xs uppercase tracking-[0.16em] text-zinc-400">
+        <div className="rounded-full border border-amber-500/15 bg-zinc-950/70 px-3 py-1 text-xs uppercase tracking-[0.16em] text-amber-200/70">
           {count ? `${index + 1} / ${count}` : "0 / 0"}
         </div>
         <ActionButton onClick={onNext} disabled={count <= 1} className="px-3">Next</ActionButton>
       </div>
 
-      <div className="flex-1 rounded-[26px] border border-zinc-800 bg-zinc-950/60 p-4 shadow-inner shadow-black/15">
+      <div className="flex-1 rounded-[26px] border border-amber-500/15 bg-zinc-950/60 p-4 shadow-inner shadow-black/15">
         <div className="grid h-full gap-3 content-start">
           <div className="flex items-center justify-center">
             <input
               type="color"
               value={section.color}
               onChange={(e) => onChange({ color: e.target.value })}
-              className="h-14 w-14 cursor-pointer rounded-2xl border border-zinc-700 bg-transparent p-1"
+              className="h-14 w-14 cursor-pointer rounded-2xl border border-amber-500/20 bg-transparent p-1"
               aria-label={`${section.name} color`}
             />
           </div>
 
           <div>
-            <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Section name</div>
+            <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-amber-200/70">Section name</div>
             <input
               value={section.name}
               onChange={(e) => onChange({ name: e.target.value })}
-              className="w-full rounded-2xl border border-zinc-700 bg-zinc-950/90 px-4 py-3 text-sm text-zinc-100 outline-none"
+              className="w-full rounded-2xl border border-amber-500/15 bg-zinc-950/90 px-4 py-3 text-sm text-zinc-100 outline-none"
               placeholder="Emergency Fund, Unassigned"
             />
           </div>
 
           <div>
-            <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Amount tool</div>
+            <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-amber-200/70">Amount tool</div>
             <MoneyInput value={amountDraft} onChange={(e) => setAmountDraft(e.target.value)} placeholder="Enter value" />
             <div className="mt-2 grid grid-cols-3 gap-2">
               <ActionButton onClick={() => onAmountAction("set", amountDraft)} disabled={!amountDraft}>Change</ActionButton>
@@ -509,8 +579,8 @@ function SliceEditor({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <MiniStat title="Percent" value={formatPercent(percent)} />
-            <MiniStat title="Value" value={formatMoney(section.amount)} />
+            <MiniStat title="Percent" value={formatPercent(percent)} tone="gold" />
+            <MiniStat title="Value" value={formatMoney(section.amount)} tone="orange" />
           </div>
         </div>
       </div>
@@ -528,13 +598,21 @@ export default function App() {
   const [tab, setTab] = useState<MobileTab>("chart");
   const [plan, setPlan] = useState<PlanKey>("current");
   const [activeIndices, setActiveIndices] = useState<Record<PlanKey, number>>({ current: 0, next: 0 });
+  const [lastSavedAt, setLastSavedAt] = useState<string | undefined>(undefined);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      setState(normalizeAppState(JSON.parse(raw) as Partial<AppState> | LegacyPlannerState));
+      const keys = [STORAGE_KEY, ...LEGACY_STORAGE_KEYS];
+      for (const key of keys) {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw) as Partial<AppState> | LegacyPlannerState;
+        const normalized = normalizeAppState(parsed);
+        setState(normalized);
+        setLastSavedAt(normalized.updatedAt);
+        return;
+      }
     } catch {
       // ignore bad local storage
     }
@@ -543,6 +621,7 @@ export default function App() {
   useEffect(() => {
     const updatedAt = new Date().toISOString();
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, updatedAt }));
+    setLastSavedAt(updatedAt);
   }, [state]);
 
   useEffect(() => {
@@ -663,12 +742,12 @@ export default function App() {
   const exportState = () => {
     const d = new Date();
     const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}_${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}${String(d.getSeconds()).padStart(2, "0")}`;
-    const payload = JSON.stringify({ ...state, version: 7, updatedAt: new Date().toISOString() }, null, 2);
+    const payload = JSON.stringify({ ...state, version: 8, updatedAt: new Date().toISOString() }, null, 2);
     const blob = new Blob([payload], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `fidelity-pie-planner_${stamp}.json`;
+    a.download = `slice-board_${stamp}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -681,7 +760,9 @@ export default function App() {
     reader.onload = () => {
       try {
         const parsed = JSON.parse(String(reader.result)) as Partial<AppState> | LegacyPlannerState;
-        setState(normalizeAppState(parsed));
+        const normalized = normalizeAppState(parsed);
+        setState(normalized);
+        setLastSavedAt(normalized.updatedAt);
         setActiveIndices({ current: 0, next: 0 });
         setPlan("current");
         setTab("chart");
@@ -705,20 +786,22 @@ export default function App() {
   return (
     <div className="h-[100dvh] overflow-hidden bg-zinc-950 text-zinc-100 md:min-h-screen md:h-auto md:overflow-x-hidden md:overflow-y-auto">
       <div className="pointer-events-none fixed inset-0">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_42%)]" />
-        <div className="absolute left-[-12%] top-10 h-80 w-80 rounded-full bg-cyan-500/10 blur-3xl" />
-        <div className="absolute right-[-10%] top-16 h-80 w-80 rounded-full bg-violet-500/10 blur-3xl" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.06),transparent_42%)]" />
+        <div className="absolute left-[-12%] top-8 h-80 w-80 rounded-full bg-amber-500/10 blur-3xl" />
+        <div className="absolute right-[-10%] top-14 h-80 w-80 rounded-full bg-orange-500/10 blur-3xl" />
       </div>
 
       <div className="relative mx-auto flex h-full max-w-6xl flex-col p-3 md:min-h-screen md:p-6">
         <input ref={fileRef} type="file" accept="application/json" className="hidden" onChange={importState} />
 
-        <header className="shrink-0 rounded-[30px] border border-zinc-800 bg-zinc-900/72 p-4 shadow-2xl shadow-black/25 backdrop-blur-sm md:p-6">
+        <header className="shrink-0 rounded-[30px] border border-amber-500/15 bg-zinc-900/72 p-4 shadow-2xl shadow-black/25 backdrop-blur-sm md:p-6">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-4">
-              <LogoMark />
+              <PizzaIcon className="h-16 w-16 shrink-0" />
               <div>
-                <h1 className="bg-[linear-gradient(135deg,#f8fafc_0%,#67e8f9_55%,#c084fc_100%)] bg-clip-text text-2xl font-semibold tracking-tight text-transparent md:text-4xl">Fidelity pie planner</h1>
+                <h1 className="bg-[linear-gradient(135deg,#fff7ed_0%,#facc15_50%,#f97316_100%)] bg-clip-text text-2xl font-semibold tracking-tight text-transparent md:text-4xl">
+                  Slice Board
+                </h1>
                 <p className="mt-2 text-sm leading-6 text-zinc-400 md:max-w-2xl">Plan your balance.</p>
               </div>
             </div>
@@ -737,20 +820,20 @@ export default function App() {
         </header>
 
         <div className="mt-3 grid shrink-0 grid-cols-3 gap-2 md:mt-4 md:grid-cols-4 md:gap-3">
-          <MiniStat title="Active pie" value={plan === "current" ? "Current" : "Next"} tone={plan === "current" ? "cyan" : "violet"} />
-          <MiniStat title="Total" value={formatMoney(activePie.total)} tone="cyan" />
-          <MiniStat title="Allocated" value={formatMoney(chart.allocated)} tone="emerald" />
+          <MiniStat title="Active pie" value={plan === "current" ? "Current" : "Next"} tone="gold" />
+          <MiniStat title="Total" value={formatMoney(activePie.total)} tone="gold" />
+          <MiniStat title="Allocated" value={formatMoney(chart.allocated)} tone="orange" />
           <div className="hidden md:block">
-            <MiniStat title="Remaining" value={formatMoney(Math.max(0, chart.remaining))} tone={overAllocated ? "amber" : "zinc"} />
+            <MiniStat title="Remaining" value={formatMoney(Math.max(0, chart.remaining))} tone={overAllocated ? "rose" : "zinc"} />
           </div>
         </div>
 
         <main className="mt-3 min-h-0 flex-1 md:mt-4">
           {tab === "chart" ? (
-            <Panel title={plan === "current" ? "Current" : "Next"}>
+            <Panel title={plan === "current" ? "Current Pie" : "Next Pie"}>
               <div className="flex h-full flex-col justify-between gap-4 md:flex-row md:items-center md:gap-6">
                 <div className="flex items-center justify-center">
-                  <DonutChart total={activePie.total} sections={activePie.sections} size={190} />
+                  <DonutChart total={activePie.total} sections={activePie.sections} size={230} />
                 </div>
                 <div className="min-h-0 flex-1">
                   <SummaryList total={activePie.total} sections={activePie.sections} />
@@ -760,7 +843,14 @@ export default function App() {
           ) : null}
 
           {tab === "edit" ? (
-            <Panel title="Edit sections" right={<div className="rounded-full border border-zinc-800 bg-zinc-950/70 px-3 py-1 text-xs uppercase tracking-[0.16em] text-zinc-400">{activePie.sections.length} total</div>}>
+            <Panel
+              title="Edit sections"
+              right={
+                <div className="rounded-full border border-amber-500/15 bg-zinc-950/70 px-3 py-1 text-xs uppercase tracking-[0.16em] text-amber-200/70">
+                  {activePie.sections.length} total
+                </div>
+              }
+            >
               <SliceEditor
                 section={currentSection}
                 total={activePie.total}
@@ -768,8 +858,18 @@ export default function App() {
                 count={activePie.sections.length}
                 onChange={(patch) => currentSection && updateSection(plan, currentSection.id, patch)}
                 onDelete={() => currentSection && deleteSection(plan, currentSection.id)}
-                onPrev={() => setActiveIndices((prev) => ({ ...prev, [plan]: activePie.sections.length ? (prev[plan] - 1 + activePie.sections.length) % activePie.sections.length : 0 }))}
-                onNext={() => setActiveIndices((prev) => ({ ...prev, [plan]: activePie.sections.length ? (prev[plan] + 1) % activePie.sections.length : 0 }))}
+                onPrev={() =>
+                  setActiveIndices((prev) => ({
+                    ...prev,
+                    [plan]: activePie.sections.length ? (prev[plan] - 1 + activePie.sections.length) % activePie.sections.length : 0,
+                  }))
+                }
+                onNext={() =>
+                  setActiveIndices((prev) => ({
+                    ...prev,
+                    [plan]: activePie.sections.length ? (prev[plan] + 1) % activePie.sections.length : 0,
+                  }))
+                }
                 onAddSection={() => addSection(plan)}
                 onAmountAction={(action, value) => currentSection && applyAmountAction(plan, currentSection.id, action, value)}
               />
@@ -780,12 +880,12 @@ export default function App() {
             <Panel title="Tools">
               <div className="grid h-full content-start gap-3">
                 <div>
-                  <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">{plan === "current" ? "Current total" : "Next total"}</div>
+                  <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-amber-200/70">{plan === "current" ? "Current total" : "Next total"}</div>
                   <MoneyInput value={String(activePie.total)} onChange={(e) => updatePlan(plan, (pie) => ({ ...pie, total: parseMoney(e.target.value) }))} />
                 </div>
 
-                <div className="rounded-[24px] border border-zinc-800 bg-zinc-950/60 px-4 py-3">
-                  <div className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Planning pie</div>
+                <div className="rounded-[24px] border border-amber-500/15 bg-zinc-950/60 px-4 py-3">
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-amber-200/70">Planning pie</div>
                   <div className="mt-2 flex items-center justify-between gap-3">
                     <div className="text-sm text-zinc-300">{state.nextEnabled ? "Next pie is visible" : "Next pie is hidden"}</div>
                     <ActionButton onClick={toggleNextEnabled}>{state.nextEnabled ? "Hide next" : "Show next"}</ActionButton>
@@ -807,13 +907,13 @@ export default function App() {
                 ) : null}
 
                 <div className="grid grid-cols-2 gap-2">
-                  <MiniStat title="Sections" value={String(activePie.sections.length)} />
-                  <MiniStat title="Status" value={overAllocated ? "Over" : chart.template ? "Template" : "Balanced"} tone={overAllocated ? "rose" : chart.template ? "violet" : "emerald"} />
+                  <MiniStat title="Sections" value={String(activePie.sections.length)} tone="zinc" />
+                  <MiniStat title="Status" value={overAllocated ? "Over" : chart.template ? "Template" : "Balanced"} tone={overAllocated ? "rose" : chart.template ? "gold" : "orange"} />
                 </div>
 
-                <div className="rounded-[24px] border border-zinc-800 bg-zinc-950/60 px-4 py-3 text-sm text-zinc-400">
-                  <div className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Last local save</div>
-                  <div className="mt-2 text-sm leading-6 text-zinc-300">{formatStamp(state.updatedAt)}</div>
+                <div className="rounded-[24px] border border-amber-500/15 bg-zinc-950/60 px-4 py-3 text-sm text-zinc-400">
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-amber-200/70">Last local save</div>
+                  <div className="mt-2 text-sm leading-6 text-zinc-300">{formatStamp(lastSavedAt)}</div>
                 </div>
               </div>
             </Panel>
