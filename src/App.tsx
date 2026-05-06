@@ -344,29 +344,46 @@ function PizzaIcon({ className = "h-14 w-14" }: { className?: string }) {
           <stop offset="100%" stopColor="#09090b" />
         </linearGradient>
         <linearGradient id="crustGradient" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor="#d6a84f" />
-          <stop offset="100%" stopColor="#8f6530" />
+          <stop offset="0%" stopColor="#efb45a" />
+          <stop offset="100%" stopColor="#b7702f" />
         </linearGradient>
         <linearGradient id="cheeseGradient" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor="#e0bf68" />
-          <stop offset="100%" stopColor="#c99746" />
+          <stop offset="0%" stopColor="#f7df8a" />
+          <stop offset="100%" stopColor="#e4b23a" />
+        </linearGradient>
+        <linearGradient id="margheritaGradient" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stopColor="#fff0b8" />
+          <stop offset="100%" stopColor="#eec75a" />
         </linearGradient>
         <linearGradient id="sauceGradient" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor="#c56f32" />
-          <stop offset="100%" stopColor="#9a4f27" />
+          <stop offset="0%" stopColor="#c9441f" />
+          <stop offset="100%" stopColor="#9f3117" />
         </linearGradient>
       </defs>
 
       <rect x="7" y="7" width="82" height="82" rx="18" fill="url(#tileGradient)" />
-      <rect x="7" y="7" width="82" height="82" rx="18" fill="none" stroke="#d6a84f" strokeWidth="1.5" opacity="0.55" />
+      <rect x="7" y="7" width="82" height="82" rx="18" fill="none" stroke="#d89a3e" strokeWidth="2" opacity="0.9" />
 
-      <path d="M48 20a28 28 0 1 1 0 56 28 28 0 0 1 0-56Z" fill="none" stroke="url(#crustGradient)" strokeWidth="7" />
-      <path d="M48 27a21 21 0 1 1 0 42 21 21 0 0 1 0-42Z" fill="none" stroke="#221f1d" strokeWidth="15" />
-      <path d="M48 27a21 21 0 0 1 18 10" fill="none" stroke="url(#cheeseGradient)" strokeWidth="15" strokeLinecap="round" />
-      <path d="M66 37a21 21 0 0 1-8 29" fill="none" stroke="url(#sauceGradient)" strokeWidth="15" strokeLinecap="round" />
-      <path d="M58 66a21 21 0 0 1-28-16" fill="none" stroke="url(#cheeseGradient)" strokeWidth="15" strokeLinecap="round" opacity="0.9" />
-      <circle cx="48" cy="48" r="15" fill="#0b0b0c" />
-      <circle cx="48" cy="48" r="16" fill="none" stroke="#312720" strokeWidth="2" />
+      <circle cx="48" cy="48" r="31" fill="none" stroke="url(#crustGradient)" strokeWidth="10" />
+      <circle cx="48" cy="48" r="23" fill="none" stroke="#241e1b" strokeWidth="18" />
+
+      <circle cx="48" cy="48" r="23" fill="none" stroke="url(#margheritaGradient)" strokeWidth="18" strokeDasharray="72 145" transform="rotate(-90 48 48)" />
+      <circle cx="48" cy="48" r="23" fill="none" stroke="url(#cheeseGradient)" strokeWidth="18" strokeDasharray="36 181" strokeDashoffset="-72" transform="rotate(-90 48 48)" />
+      <circle cx="48" cy="48" r="23" fill="none" stroke="url(#sauceGradient)" strokeWidth="18" strokeDasharray="37 180" strokeDashoffset="-108" transform="rotate(-90 48 48)" />
+
+      <circle cx="48" cy="48" r="12.5" fill="#0b0b0c" />
+      <circle cx="48" cy="48" r="13.5" fill="none" stroke="#3b2a1e" strokeWidth="2" />
+
+      <path d="M33 33c3-4 8-4 11 0c-1 5-4 8-9 9c-4-3-4-6-2-9Z" fill="#65a338" stroke="#416723" strokeWidth="1" />
+      <path d="M31 48c3-4 8-4 11 0c-1 5-4 8-9 9c-4-3-4-6-2-9Z" fill="#65a338" stroke="#416723" strokeWidth="1" />
+      <path d="M36 60c3-4 8-4 11 0c-1 5-4 8-9 9c-4-3-4-6-2-9Z" fill="#65a338" stroke="#416723" strokeWidth="1" />
+
+      <g fill="#f2dcc1" stroke="#b08967" strokeWidth="1.2">
+        <path d="M59 61c2.6-3.6 7.8-3.8 10.7 0c-0.7 2.6-3.2 4.2-5.3 4.2c-2.1 0-4.7-1.6-5.4-4.2Z" />
+        <path d="M63.8 65.2v4.8" strokeLinecap="round" />
+        <path d="M70 52c2.6-3.6 7.8-3.8 10.7 0c-0.7 2.6-3.2 4.2-5.3 4.2c-2.1 0-4.7-1.6-5.4-4.2Z" />
+        <path d="M74.8 56.2V61" strokeLinecap="round" />
+      </g>
     </svg>
   );
 }
@@ -390,6 +407,7 @@ function DonutChart({ total, sections, size = 220 }: { total: number; sections: 
   const chart = buildChartState(total, sections);
   const radius = 56;
   const stroke = 24;
+  const textureStroke = 10;
   const circumference = 2 * Math.PI * radius;
   let accumulated = 0;
 
@@ -397,33 +415,71 @@ function DonutChart({ total, sections, size = 220 }: { total: number; sections: 
     <div className="relative shrink-0" style={{ height: size, width: size }}>
       <div className="absolute inset-5 rounded-full bg-amber-500/5 blur-2xl" />
       <svg viewBox="0 0 180 180" className="relative h-full w-full drop-shadow-[0_12px_30px_rgba(0,0,0,0.45)]">
-        <circle cx="90" cy="90" r="65" fill="none" stroke="#8f6530" strokeWidth="10" opacity="0.9" />
-        <circle cx="90" cy="90" r="64" fill="none" stroke="#d6a84f" strokeWidth="4" opacity="0.65" />
-        <circle cx="90" cy="90" r={radius} fill="none" stroke="#1b1816" strokeWidth={stroke} />
+        <defs>
+          <radialGradient id="crustFill" cx="35%" cy="30%" r="80%">
+            <stop offset="0%" stopColor="#f2b764" />
+            <stop offset="100%" stopColor="#b56f33" />
+          </radialGradient>
+        </defs>
+
+        <circle cx="90" cy="90" r="66" fill="none" stroke="url(#crustFill)" strokeWidth="12" />
+        <circle cx="90" cy="90" r="66" fill="none" stroke="#f0c679" strokeWidth="3" opacity="0.55" />
+        <circle cx="90" cy="90" r={radius} fill="none" stroke="#241d1a" strokeWidth={stroke} />
+
         {chart.chartTotal > 0
           ? chart.segments.map((segment) => {
               const dash = (segment.value / chart.chartTotal) * circumference;
               const offset = (accumulated / chart.chartTotal) * circumference;
               accumulated += segment.value;
 
+              const isDark = segment.color.toLowerCase() === "#2b2724";
+              const textureA = isDark ? "rgba(255,236,185,0.10)" : "rgba(255,236,185,0.22)";
+              const textureB = isDark ? "rgba(82,45,15,0.18)" : "rgba(138,74,19,0.18)";
+
               return (
-                <circle
-                  key={segment.id}
-                  cx="90"
-                  cy="90"
-                  r={radius}
-                  fill="none"
-                  stroke={segment.color}
-                  strokeWidth={stroke}
-                  strokeDasharray={`${dash} ${Math.max(0, circumference - dash)}`}
-                  strokeDashoffset={-offset}
-                  transform="rotate(-90 90 90)"
-                />
+                <g key={segment.id}>
+                  <circle
+                    cx="90"
+                    cy="90"
+                    r={radius}
+                    fill="none"
+                    stroke={segment.color}
+                    strokeWidth={stroke}
+                    strokeDasharray={`${dash} ${Math.max(0, circumference - dash)}`}
+                    strokeDashoffset={-offset}
+                    transform="rotate(-90 90 90)"
+                  />
+                  <circle
+                    cx="90"
+                    cy="90"
+                    r={radius}
+                    fill="none"
+                    stroke={textureA}
+                    strokeWidth={textureStroke}
+                    strokeLinecap="round"
+                    strokeDasharray={`${Math.max(0.8, dash * 0.01).toFixed(2)} 10`}
+                    strokeDashoffset={-(offset + 2)}
+                    transform="rotate(-90 90 90)"
+                  />
+                  <circle
+                    cx="90"
+                    cy="90"
+                    r={radius}
+                    fill="none"
+                    stroke={textureB}
+                    strokeWidth={6}
+                    strokeLinecap="round"
+                    strokeDasharray={`${Math.max(0.8, dash * 0.006).toFixed(2)} 16`}
+                    strokeDashoffset={-(offset + 9)}
+                    transform="rotate(-90 90 90)"
+                  />
+                </g>
               );
             })
           : null}
+
         <circle cx="90" cy="90" r="33" fill="#0b0b0c" />
-        <circle cx="90" cy="90" r="34" fill="none" stroke="#312720" strokeWidth="3" />
+        <circle cx="90" cy="90" r="34" fill="none" stroke="#3b2a1e" strokeWidth="3" />
       </svg>
       <div className="absolute inset-0 flex items-center justify-center px-5 text-center">
         {chart.template ? (
