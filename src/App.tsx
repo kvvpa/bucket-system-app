@@ -5,16 +5,16 @@ const LEGACY_STORAGE_KEYS = ["joey-fidelity-pie-planner-v1"];
 const CURRENT_DEFAULT_TOTAL = 0;
 const NEXT_DEFAULT_TOTAL = 0;
 const SLICE_COLORS = [
-  "#d6a84f",
-  "#c56f32",
-  "#2b2724",
-  "#b9823a",
-  "#a95f2b",
-  "#8f6530",
-  "#e0bf68",
-  "#6f4a27",
-  "#c99746",
-  "#b86f3b",
+  "#d6b15e",
+  "#c77743",
+  "#8a5b3c",
+  "#b98a52",
+  "#a66738",
+  "#6b4b36",
+  "#e1c681",
+  "#4f4038",
+  "#c39a58",
+  "#9d7144",
 ];
 
 type Slice = {
@@ -351,39 +351,35 @@ function PizzaIcon({ className = "h-14 w-14" }: { className?: string }) {
           <stop offset="0%" stopColor="#f7df8a" />
           <stop offset="100%" stopColor="#e4b23a" />
         </linearGradient>
-        <linearGradient id="margheritaGradient" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor="#fff0b8" />
-          <stop offset="100%" stopColor="#eec75a" />
-        </linearGradient>
         <linearGradient id="sauceGradient" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor="#c9441f" />
+          <stop offset="0%" stopColor="#cf4e24" />
           <stop offset="100%" stopColor="#9f3117" />
         </linearGradient>
       </defs>
 
       <rect x="7" y="7" width="82" height="82" rx="18" fill="url(#tileGradient)" />
-      <rect x="7" y="7" width="82" height="82" rx="18" fill="none" stroke="#d89a3e" strokeWidth="2" opacity="0.9" />
+      <rect x="7" y="7" width="82" height="82" rx="18" fill="none" stroke="#d89a3e" strokeWidth="2" opacity="0.8" />
 
       <circle cx="48" cy="48" r="31" fill="none" stroke="url(#crustGradient)" strokeWidth="10" />
-      <circle cx="48" cy="48" r="23" fill="none" stroke="#241e1b" strokeWidth="18" />
-
-      <circle cx="48" cy="48" r="23" fill="none" stroke="url(#margheritaGradient)" strokeWidth="18" strokeDasharray="72 145" transform="rotate(-90 48 48)" />
-      <circle cx="48" cy="48" r="23" fill="none" stroke="url(#cheeseGradient)" strokeWidth="18" strokeDasharray="36 181" strokeDashoffset="-72" transform="rotate(-90 48 48)" />
-      <circle cx="48" cy="48" r="23" fill="none" stroke="url(#sauceGradient)" strokeWidth="18" strokeDasharray="37 180" strokeDashoffset="-108" transform="rotate(-90 48 48)" />
+      <circle cx="48" cy="48" r="25" fill="none" stroke="url(#sauceGradient)" strokeWidth="4" opacity="0.9" />
+      <circle cx="48" cy="48" r="23" fill="url(#cheeseGradient)" />
+      <circle cx="48" cy="48" r="23" fill="none" stroke="#fff2b8" strokeWidth="1.2" opacity="0.4" />
 
       <circle cx="48" cy="48" r="12.5" fill="#0b0b0c" />
       <circle cx="48" cy="48" r="13.5" fill="none" stroke="#3b2a1e" strokeWidth="2" />
 
-      <path d="M33 33c3-4 8-4 11 0c-1 5-4 8-9 9c-4-3-4-6-2-9Z" fill="#65a338" stroke="#416723" strokeWidth="1" />
-      <path d="M31 48c3-4 8-4 11 0c-1 5-4 8-9 9c-4-3-4-6-2-9Z" fill="#65a338" stroke="#416723" strokeWidth="1" />
-      <path d="M36 60c3-4 8-4 11 0c-1 5-4 8-9 9c-4-3-4-6-2-9Z" fill="#65a338" stroke="#416723" strokeWidth="1" />
-
-      <g fill="#f2dcc1" stroke="#b08967" strokeWidth="1.2">
-        <path d="M59 61c2.6-3.6 7.8-3.8 10.7 0c-0.7 2.6-3.2 4.2-5.3 4.2c-2.1 0-4.7-1.6-5.4-4.2Z" />
-        <path d="M63.8 65.2v4.8" strokeLinecap="round" />
-        <path d="M70 52c2.6-3.6 7.8-3.8 10.7 0c-0.7 2.6-3.2 4.2-5.3 4.2c-2.1 0-4.7-1.6-5.4-4.2Z" />
-        <path d="M74.8 56.2V61" strokeLinecap="round" />
+      <g stroke="#7b5225" strokeWidth="2.4" strokeLinecap="round" opacity="0.82">
+        <path d="M48 35.5 L48 25.5" />
+        <path d="M60.5 48 L70.5 48" />
+        <path d="M42.2 59.8 L37.1 68.4" />
+        <path d="M36.1 42.2 L27.5 37.1" />
       </g>
+
+      <path d="M35 33c3.1-4 8.2-4 11.2 0c-0.9 5.1-4.2 8.2-9.2 9.2c-4-2.8-4.2-6.1-2-9.2Z" fill="#6ba73a" stroke="#416723" strokeWidth="1" />
+      <path d="M60 59.8c2.7-3.5 7.3-3.5 9.8 0c-0.7 2.3-3 3.8-4.9 3.8s-4.1-1.5-4.9-3.8Z" fill="#eadcc8" stroke="#b08967" strokeWidth="1.1" />
+      <path d="M64.8 63.6v4.4" stroke="#b08967" strokeWidth="1.1" strokeLinecap="round" />
+      <circle cx="59.5" cy="38.5" r="3.8" fill="#b63c2a" stroke="#8a281c" strokeWidth="1.1" />
+      <circle cx="64.4" cy="42.2" r="2.8" fill="#b63c2a" stroke="#8a281c" strokeWidth="1" />
     </svg>
   );
 }
@@ -403,13 +399,130 @@ function Panel({ title, children, right }: { title: string; children: React.Reac
   );
 }
 
+function polarPoint(angle: number, distance: number) {
+  return {
+    x: 90 + Math.cos(angle) * distance,
+    y: 90 + Math.sin(angle) * distance,
+  };
+}
+
+function renderPizzaTopping(kind: string, x: number, y: number, scale = 1, rotate = 0, key: string) {
+  const transform = `translate(${x} ${y}) rotate(${rotate}) scale(${scale})`;
+
+  if (kind === "basil") {
+    return (
+      <g key={key} transform={transform}>
+        <path d="M-1 -8C4 -9 8 -5 8 0C7 6 2 9 -4 10C-9 6 -10 1 -9 -4C-7 -6 -4 -7 -1 -8Z" fill="#6ba73a" stroke="#416723" strokeWidth="1.3" />
+        <path d="M-2 8C0 4 2 -1 4 -6" fill="none" stroke="#547f33" strokeWidth="1" strokeLinecap="round" />
+      </g>
+    );
+  }
+
+  if (kind === "mushroom") {
+    return (
+      <g key={key} transform={transform}>
+        <path d="M-8 -1C-5 -6 5 -6 8 -1C6 3 2 5 0 5C-2 5 -6 3 -8 -1Z" fill="#eadcc8" stroke="#b08967" strokeWidth="1.4" />
+        <path d="M0 5V11" fill="none" stroke="#b08967" strokeWidth="1.6" strokeLinecap="round" />
+      </g>
+    );
+  }
+
+  if (kind === "olive") {
+    return (
+      <g key={key} transform={transform}>
+        <circle cx="-4" cy="0" r="4.3" fill="#47433f" stroke="#22201d" strokeWidth="1.1" />
+        <circle cx="-4" cy="0" r="1.8" fill="#f0d778" />
+        <circle cx="5" cy="4" r="3.8" fill="#47433f" stroke="#22201d" strokeWidth="1.1" />
+        <circle cx="5" cy="4" r="1.5" fill="#f0d778" />
+      </g>
+    );
+  }
+
+  if (kind === "pepper") {
+    return (
+      <g key={key} transform={transform}>
+        <path d="M-9 -2C-2 -10 5 -10 10 -4" fill="none" stroke="#6aa84f" strokeWidth="2.3" strokeLinecap="round" />
+        <path d="M-7 5C0 -3 7 -3 10 2" fill="none" stroke="#6aa84f" strokeWidth="2.3" strokeLinecap="round" />
+      </g>
+    );
+  }
+
+  if (kind === "onion") {
+    return (
+      <g key={key} transform={transform}>
+        <path d="M-8 3C-6 -4 5 -4 8 3" fill="none" stroke="#d6bfd6" strokeWidth="2" strokeLinecap="round" />
+        <path d="M-4 6C-2 0 2 0 5 6" fill="none" stroke="#e6d3e6" strokeWidth="1.8" strokeLinecap="round" />
+      </g>
+    );
+  }
+
+  return (
+    <g key={key} transform={transform}>
+      <circle cx="-3" cy="-1" r="4.4" fill="#b63c2a" stroke="#8a281c" strokeWidth="1.2" />
+      <circle cx="4.5" cy="3.5" r="3.4" fill="#b63c2a" stroke="#8a281c" strokeWidth="1.1" />
+      <circle cx="-3" cy="-1" r="1.1" fill="#d97766" opacity="0.65" />
+      <circle cx="4.5" cy="3.5" r="0.9" fill="#d97766" opacity="0.65" />
+    </g>
+  );
+}
+
+function buildToppingPlacement(index: number, angle: number, span: number) {
+  const kind = ["pepperoni", "basil", "mushroom", "olive", "pepper", "onion"][index % 6];
+  const anchors =
+    span < 0.55
+      ? [{ ...polarPoint(angle, 56), scale: 0.8, rotate: (angle * 180) / Math.PI + 90 }]
+      : span < 1.05
+        ? [
+            { ...polarPoint(angle - 0.12, 54), scale: 0.82, rotate: (angle * 180) / Math.PI + 55 },
+            { ...polarPoint(angle + 0.12, 60), scale: 0.72, rotate: (angle * 180) / Math.PI + 125 },
+          ]
+        : [
+            { ...polarPoint(angle - 0.2, 53), scale: 0.82, rotate: (angle * 180) / Math.PI + 40 },
+            { ...polarPoint(angle, 60), scale: 0.78, rotate: (angle * 180) / Math.PI + 100 },
+            { ...polarPoint(angle + 0.2, 54), scale: 0.72, rotate: (angle * 180) / Math.PI + 145 },
+          ];
+
+  return { kind, anchors };
+}
+
 function DonutChart({ total, sections, size = 220 }: { total: number; sections: Slice[]; size?: number }) {
   const chart = buildChartState(total, sections);
   const radius = 56;
   const stroke = 24;
-  const textureStroke = 10;
   const circumference = 2 * Math.PI * radius;
+  const separatorInner = radius - stroke / 2 + 2;
+  const separatorOuter = radius + stroke / 2 - 2;
   let accumulated = 0;
+  let boundaryAccum = 0;
+
+  const boundaries =
+    chart.chartTotal > 0
+      ? chart.segments.slice(0, -1).map((segment) => {
+          boundaryAccum += segment.value;
+          const angle = (boundaryAccum / chart.chartTotal) * Math.PI * 2 - Math.PI / 2;
+          return {
+            key: `${segment.id}-boundary`,
+            x1: 90 + Math.cos(angle) * separatorInner,
+            y1: 90 + Math.sin(angle) * separatorInner,
+            x2: 90 + Math.cos(angle) * separatorOuter,
+            y2: 90 + Math.sin(angle) * separatorOuter,
+          };
+        })
+      : [];
+
+  const toppingGroups =
+    chart.chartTotal > 0
+      ? chart.segments.map((segment, index) => {
+          const start = accumulated;
+          const span = (segment.value / chart.chartTotal) * Math.PI * 2;
+          accumulated += segment.value;
+          const midAngle = ((start + segment.value / 2) / chart.chartTotal) * Math.PI * 2 - Math.PI / 2;
+          return {
+            key: segment.id,
+            ...buildToppingPlacement(index, midAngle, span),
+          };
+        })
+      : [];
 
   return (
     <div className="relative shrink-0" style={{ height: size, width: size }}>
@@ -420,63 +533,41 @@ function DonutChart({ total, sections, size = 220 }: { total: number; sections: 
             <stop offset="0%" stopColor="#f2b764" />
             <stop offset="100%" stopColor="#b56f33" />
           </radialGradient>
+          <linearGradient id="cheeseFill" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stopColor="#f7df8a" />
+            <stop offset="100%" stopColor="#e4b23a" />
+          </linearGradient>
+          <linearGradient id="sauceRing" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stopColor="#cf4e24" />
+            <stop offset="100%" stopColor="#9f3117" />
+          </linearGradient>
         </defs>
 
         <circle cx="90" cy="90" r="66" fill="none" stroke="url(#crustFill)" strokeWidth="12" />
-        <circle cx="90" cy="90" r="66" fill="none" stroke="#f0c679" strokeWidth="3" opacity="0.55" />
-        <circle cx="90" cy="90" r={radius} fill="none" stroke="#241d1a" strokeWidth={stroke} />
+        <circle cx="90" cy="90" r="66" fill="none" stroke="#f0c679" strokeWidth="3" opacity="0.5" />
+        <circle cx="90" cy="90" r={58} fill="none" stroke="url(#sauceRing)" strokeWidth="6" opacity="0.92" />
+        <circle cx="90" cy="90" r={radius} fill="none" stroke="url(#cheeseFill)" strokeWidth={stroke} />
+        <circle cx="90" cy="90" r={radius} fill="none" stroke="#fff2b8" strokeWidth="2" opacity="0.28" />
 
-        {chart.chartTotal > 0
-          ? chart.segments.map((segment) => {
-              const dash = (segment.value / chart.chartTotal) * circumference;
-              const offset = (accumulated / chart.chartTotal) * circumference;
-              accumulated += segment.value;
+        {boundaries.map((boundary) => (
+          <line
+            key={boundary.key}
+            x1={boundary.x1}
+            y1={boundary.y1}
+            x2={boundary.x2}
+            y2={boundary.y2}
+            stroke="#2b221d"
+            strokeWidth="2.6"
+            strokeLinecap="round"
+            opacity="0.72"
+          />
+        ))}
 
-              const isDark = segment.color.toLowerCase() === "#2b2724";
-              const textureA = isDark ? "rgba(255,236,185,0.10)" : "rgba(255,236,185,0.22)";
-              const textureB = isDark ? "rgba(82,45,15,0.18)" : "rgba(138,74,19,0.18)";
-
-              return (
-                <g key={segment.id}>
-                  <circle
-                    cx="90"
-                    cy="90"
-                    r={radius}
-                    fill="none"
-                    stroke={segment.color}
-                    strokeWidth={stroke}
-                    strokeDasharray={`${dash} ${Math.max(0, circumference - dash)}`}
-                    strokeDashoffset={-offset}
-                    transform="rotate(-90 90 90)"
-                  />
-                  <circle
-                    cx="90"
-                    cy="90"
-                    r={radius}
-                    fill="none"
-                    stroke={textureA}
-                    strokeWidth={textureStroke}
-                    strokeLinecap="round"
-                    strokeDasharray={`${Math.max(0.8, dash * 0.01).toFixed(2)} 10`}
-                    strokeDashoffset={-(offset + 2)}
-                    transform="rotate(-90 90 90)"
-                  />
-                  <circle
-                    cx="90"
-                    cy="90"
-                    r={radius}
-                    fill="none"
-                    stroke={textureB}
-                    strokeWidth={6}
-                    strokeLinecap="round"
-                    strokeDasharray={`${Math.max(0.8, dash * 0.006).toFixed(2)} 16`}
-                    strokeDashoffset={-(offset + 9)}
-                    transform="rotate(-90 90 90)"
-                  />
-                </g>
-              );
-            })
-          : null}
+        {toppingGroups.map((group) =>
+          group.anchors.map((anchor, index) =>
+            renderPizzaTopping(group.kind, anchor.x, anchor.y, anchor.scale, anchor.rotate, `${group.key}-${index}`)
+          )
+        )}
 
         <circle cx="90" cy="90" r="33" fill="#0b0b0c" />
         <circle cx="90" cy="90" r="34" fill="none" stroke="#3b2a1e" strokeWidth="3" />
