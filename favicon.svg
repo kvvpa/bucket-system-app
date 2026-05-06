@@ -9,12 +9,12 @@
       <stop offset="100%" stop-color="#b7702f"/>
     </linearGradient>
     <linearGradient id="cheese" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#f7df8a"/>
+      <stop offset="0%" stop-color="#ffe89a"/>
       <stop offset="100%" stop-color="#e4b23a"/>
     </linearGradient>
     <linearGradient id="sauce" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#cf4e24"/>
-      <stop offset="100%" stop-color="#9f3117"/>
+      <stop offset="0%" stop-color="#c64a22"/>
+      <stop offset="100%" stop-color="#8f2f17"/>
     </linearGradient>
   </defs>
 
@@ -24,21 +24,17 @@
   <circle cx="48" cy="48" r="31" fill="none" stroke="url(#crust)" stroke-width="10"/>
   <circle cx="48" cy="48" r="25" fill="none" stroke="url(#sauce)" stroke-width="4" opacity="0.9"/>
   <circle cx="48" cy="48" r="23" fill="url(#cheese)"/>
-  <circle cx="48" cy="48" r="23" fill="none" stroke="#fff2b8" stroke-width="1.2" opacity="0.4"/>
+
+  <g stroke="#7b5225" stroke-width="2.4" stroke-linecap="round" opacity="0.8">
+    <path d="M48 25.5v10"/>
+    <path d="M70.5 48h-10"/>
+    <path d="M37.2 68.3l5-8.6"/>
+    <path d="M27.5 37.2l8.7 5"/>
+  </g>
 
   <circle cx="48" cy="48" r="12.5" fill="#0b0b0c"/>
   <circle cx="48" cy="48" r="13.5" fill="none" stroke="#3b2a1e" stroke-width="2"/>
 
-  <g stroke="#7b5225" stroke-width="2.4" stroke-linecap="round" opacity="0.82">
-    <path d="M48 35.5 L48 25.5"/>
-    <path d="M60.5 48 L70.5 48"/>
-    <path d="M42.2 59.8 L37.1 68.4"/>
-    <path d="M36.1 42.2 L27.5 37.1"/>
-  </g>
-
-  <path d="M35 33c3.1-4 8.2-4 11.2 0c-0.9 5.1-4.2 8.2-9.2 9.2c-4-2.8-4.2-6.1-2-9.2Z" fill="#6ba73a" stroke="#416723" stroke-width="1"/>
-  <path d="M60 59.8c2.7-3.5 7.3-3.5 9.8 0c-0.7 2.3-3 3.8-4.9 3.8s-4.1-1.5-4.9-3.8Z" fill="#eadcc8" stroke="#b08967" stroke-width="1.1"/>
-  <path d="M64.8 63.6v4.4" stroke="#b08967" stroke-width="1.1" stroke-linecap="round"/>
-  <circle cx="59.5" cy="38.5" r="3.8" fill="#b63c2a" stroke="#8a281c" stroke-width="1.1"/>
-  <circle cx="64.4" cy="42.2" r="2.8" fill="#b63c2a" stroke="#8a281c" stroke-width="1"/>
+  <circle cx="61.5" cy="38.5" r="3.5" fill="#b63c2a" stroke="#8a281c" stroke-width="1"/>
+  <circle cx="35" cy="55" r="3.1" fill="#b63c2a" stroke="#8a281c" stroke-width="1"/>
 </svg>
