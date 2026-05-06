@@ -32,6 +32,7 @@ type AppState = {
   version: number;
   current: PiePlan;
   next: PiePlan;
+  nextEnabled: boolean;
   updatedAt?: string;
 };
 
@@ -125,9 +126,10 @@ function defaultNextPlan(): PiePlan {
 
 function makeFreshState(): AppState {
   return {
-    version: 6,
+    version: 7,
     current: defaultCurrentPlan(),
     next: defaultNextPlan(),
+    nextEnabled: true,
   };
 }
 
@@ -137,18 +139,20 @@ function normalizeAppState(raw: Partial<AppState> | LegacyPlannerState | null | 
   if (hasDualPlans) {
     const typed = raw as Partial<AppState>;
     return {
-      version: 6,
+      version: 7,
       current: normalizePlan(typed.current, CURRENT_DEFAULT_TOTAL),
       next: normalizePlan(typed.next, NEXT_DEFAULT_TOTAL),
+      nextEnabled: typed.nextEnabled ?? true,
       updatedAt: typed.updatedAt,
     };
   }
 
   const legacy = raw as LegacyPlannerState | null | undefined;
   return {
-    version: 6,
+    version: 7,
     current: normalizePlan(legacy, CURRENT_DEFAULT_TOTAL),
     next: normalizePlan({ total: NEXT_DEFAULT_TOTAL, sections: [] }, NEXT_DEFAULT_TOTAL),
+    nextEnabled: true,
     updatedAt: legacy?.updatedAt,
   };
 }
@@ -559,6 +563,10 @@ export default function App() {
     if (changed) setActiveIndices(nextIndices);
   }, [state, activeIndices]);
 
+  useEffect(() => {
+    if (!state.nextEnabled && plan === "next") setPlan("current");
+  }, [state.nextEnabled, plan]);
+
   const activePie = state[plan];
   const chart = useMemo(() => buildChartState(activePie.total, activePie.sections), [activePie]);
   const overAllocated = activePie.total - chart.allocated < 0;
@@ -597,6 +605,11 @@ export default function App() {
         sections: nextSections,
       };
     });
+  };
+
+  const toggleNextEnabled = () => {
+    setState((prev) => ({ ...prev, nextEnabled: !prev.nextEnabled }));
+    if (state.nextEnabled && plan === "next") setPlan("current");
   };
 
   const addSection = (planKey: PlanKey) => {
@@ -650,7 +663,7 @@ export default function App() {
   const exportState = () => {
     const d = new Date();
     const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}_${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}${String(d.getSeconds()).padStart(2, "0")}`;
-    const payload = JSON.stringify({ ...state, version: 6, updatedAt: new Date().toISOString() }, null, 2);
+    const payload = JSON.stringify({ ...state, version: 7, updatedAt: new Date().toISOString() }, null, 2);
     const blob = new Blob([payload], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -715,10 +728,12 @@ export default function App() {
               <TabButton active={tab === "tools"} onClick={() => setTab("tools")}>Tools</TabButton>
             </div>
           </div>
-          <div className="mt-3 hidden gap-2 md:flex">
-            <PlanButton active={plan === "current"} onClick={() => setPlan("current")}>Current</PlanButton>
-            <PlanButton active={plan === "next"} onClick={() => setPlan("next")}>Next</PlanButton>
-          </div>
+          {state.nextEnabled ? (
+            <div className="mt-3 hidden gap-2 md:flex">
+              <PlanButton active={plan === "current"} onClick={() => setPlan("current")}>Current</PlanButton>
+              <PlanButton active={plan === "next"} onClick={() => setPlan("next")}>Next</PlanButton>
+            </div>
+          ) : null}
         </header>
 
         <div className="mt-3 grid shrink-0 grid-cols-3 gap-2 md:mt-4 md:grid-cols-4 md:gap-3">
@@ -769,6 +784,14 @@ export default function App() {
                   <MoneyInput value={String(activePie.total)} onChange={(e) => updatePlan(plan, (pie) => ({ ...pie, total: parseMoney(e.target.value) }))} />
                 </div>
 
+                <div className="rounded-[24px] border border-zinc-800 bg-zinc-950/60 px-4 py-3">
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Planning pie</div>
+                  <div className="mt-2 flex items-center justify-between gap-3">
+                    <div className="text-sm text-zinc-300">{state.nextEnabled ? "Next pie is visible" : "Next pie is hidden"}</div>
+                    <ActionButton onClick={toggleNextEnabled}>{state.nextEnabled ? "Hide next" : "Show next"}</ActionButton>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-2">
                   <ActionButton onClick={() => addSection(plan)} variant="primary">New section</ActionButton>
                   <ActionButton onClick={exportState}>Export JSON</ActionButton>
@@ -776,7 +799,7 @@ export default function App() {
                   <ActionButton onClick={resetPlanner} variant="ghost">Reset all</ActionButton>
                 </div>
 
-                {plan === "next" ? (
+                {state.nextEnabled && plan === "next" ? (
                   <div className="grid grid-cols-2 gap-2">
                     <ActionButton onClick={copyCurrentToNext}>Copy current in</ActionButton>
                     <ActionButton onClick={clearNextPlan} variant="ghost">Clear next pie</ActionButton>
@@ -798,10 +821,12 @@ export default function App() {
         </main>
 
         <nav className="mt-3 grid shrink-0 gap-2 md:hidden">
-          <div className="grid grid-cols-2 gap-2">
-            <PlanButton active={plan === "current"} onClick={() => setPlan("current")}>Current</PlanButton>
-            <PlanButton active={plan === "next"} onClick={() => setPlan("next")}>Next</PlanButton>
-          </div>
+          {state.nextEnabled ? (
+            <div className="grid grid-cols-2 gap-2">
+              <PlanButton active={plan === "current"} onClick={() => setPlan("current")}>Current</PlanButton>
+              <PlanButton active={plan === "next"} onClick={() => setPlan("next")}>Next</PlanButton>
+            </div>
+          ) : null}
           <div className="grid grid-cols-3 gap-2">
             <MobileNavButton active={tab === "chart"} onClick={() => setTab("chart")}>Chart</MobileNavButton>
             <MobileNavButton active={tab === "edit"} onClick={() => setTab("edit")}>Edit</MobileNavButton>
