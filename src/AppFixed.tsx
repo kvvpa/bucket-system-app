@@ -18,6 +18,7 @@ type ToppingKind =
 type SliceKind = "unassigned" | "remaining" | "named";
 type PieKey = "current" | "next";
 type ToolMode = "change" | "add" | "subtract";
+type ViewKey = "board" | "next" | "edit" | "json";
 
 type Slice = {
   id: string;
@@ -277,14 +278,7 @@ function PizzaWindowChart({ slices, title }: { slices: Slice[]; title: string })
           const outer = polarPoint(cx, cy, outerRadius, segment.endAngle);
           const inner = polarPoint(cx, cy, innerRadius, segment.endAngle);
           return (
-            <line
-              key={`${segment.slice.id}-separator`}
-              x1={inner.x}
-              y1={inner.y}
-              x2={outer.x}
-              y2={outer.y}
-              className="pizza-slice-separator"
-            />
+            <line key={`${segment.slice.id}-separator`} x1={inner.x} y1={inner.y} x2={outer.x} y2={outer.y} className="pizza-slice-separator" />
           );
         })}
         <circle cx={cx} cy={cy} r={innerRadius} className="pizza-center-hole" />
@@ -294,9 +288,6 @@ function PizzaWindowChart({ slices, title }: { slices: Slice[]; title: string })
         <span>{total > 0 ? money(total) : "Empty"}</span>
         <small>{total > 0 ? "total pie" : "add slices"}</small>
       </div>
-      <p className="chart-temporary-note">
-        Temporary raster anchor: proportional wedge windows are active. Per-slice topping textures still need the aligned PNG asset set.
-      </p>
     </div>
   );
 }
@@ -316,6 +307,7 @@ function App() {
   const [next, setNext] = useState<Slice[]>(initial.next);
   const [showNext, setShowNext] = useState(initial.showNext);
   const [activePie, setActivePie] = useState<PieKey>(initial.activePie);
+  const [view, setView] = useState<ViewKey>("board");
   const [selectedSliceId, setSelectedSliceId] = useState<string | null>(initial.selectedSliceId);
   const [toolMode, setToolMode] = useState<ToolMode>("change");
   const [toolAmount, setToolAmount] = useState("");
@@ -325,9 +317,11 @@ function App() {
   const [importText, setImportText] = useState("");
   const [importMessage, setImportMessage] = useState("");
 
+  const displayPie: PieKey = view === "next" ? "next" : activePie;
+  const displaySlices = displayPie === "current" ? current : next;
   const activeSlices = activePie === "current" ? current : next;
+  const displayTotal = totalFor(displaySlices);
   const currentTotal = totalFor(current);
-  const activeTotal = totalFor(activeSlices);
   const currentAllocated = allocatedFor(current);
   const selectedSlice = activeSlices.find((slice) => slice.id === selectedSliceId) ?? activeSlices[0] ?? null;
 
@@ -344,7 +338,7 @@ function App() {
   useEffect(() => {
     const payload = {
       app: "Slice Board",
-      version: 2,
+      version: 3,
       current,
       next,
       showNext,
@@ -353,6 +347,12 @@ function App() {
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   }, [current, next, showNext, activePie, selectedSliceId]);
+
+  function setActiveView(nextView: ViewKey) {
+    setView(nextView);
+    if (nextView === "next") setActivePie("next");
+    if (nextView === "board") setActivePie("current");
+  }
 
   function updateActivePie(updater: (slices: Slice[]) => Slice[]) {
     if (activePie === "current") setCurrent(updater);
@@ -373,8 +373,7 @@ function App() {
     updateActivePie((slices) =>
       slices.map((slice) => {
         if (slice.id !== selectedSlice.id) return slice;
-        const nextAmount =
-          toolMode === "add" ? slice.amount + value : toolMode === "subtract" ? Math.max(0, slice.amount - value) : value;
+        const nextAmount = toolMode === "add" ? slice.amount + value : toolMode === "subtract" ? Math.max(0, slice.amount - value) : value;
         return { ...slice, amount: nextAmount };
       }),
     );
@@ -397,6 +396,8 @@ function App() {
   function copyCurrentToNext() {
     setNext(cloneSlices(current));
     setShowNext(true);
+    setActivePie("next");
+    setView("next");
   }
 
   function clearNextPie() {
@@ -415,7 +416,7 @@ function App() {
     const payload = JSON.stringify(
       {
         app: "Slice Board",
-        version: 2,
+        version: 3,
         current,
         next,
         showNext,
@@ -441,6 +442,7 @@ function App() {
       setNext(importedNext);
       setShowNext(parsed.showNext === false ? false : true);
       setActivePie("current");
+      setView("board");
       setSelectedSliceId(importedCurrent[0]?.id ?? null);
       setImportMessage("Imported JSON into Slice Board.");
     } catch {
@@ -461,156 +463,119 @@ function App() {
         </header>
 
         <section className="stats-grid" aria-label="Current pie stats">
-          <StatCard label="Active pie" value={activePie === "current" ? "Current" : "Next"} />
+          <StatCard label="Active" value={activePie === "current" ? "Current" : "Next"} />
           <StatCard label="Total" value={money(currentTotal)} />
           <StatCard label="Allocated" value={money(currentAllocated)} />
         </section>
 
-        <section className="panel chart-panel">
-          <div className="panel-heading">
+        <section className="screen-card chart-stage">
+          <div className="stage-heading">
             <div>
-              <p className="eyebrow">Current Pie</p>
-              <h2>Current allocation</h2>
+              <p className="eyebrow">{displayPie === "current" ? "Current Pie" : "Next Pie"}</p>
+              <h2>{money(displayTotal)}</h2>
             </div>
-            <button className="soft-button" type="button" onClick={() => setActivePie("current")}>Edit current</button>
+            <span className="temp-badge">Temp raster</span>
           </div>
-          <PizzaWindowChart slices={current} title="Current Pie" />
-          <SliceList slices={current} total={currentTotal} selectedSliceId={selectedSliceId} onSelect={setSelectedSliceId} />
+          {displayPie === "next" && !showNext ? (
+            <div className="hidden-next-note">Next pie is hidden. Tap Show in Next.</div>
+          ) : (
+            <PizzaWindowChart slices={displaySlices} title={displayPie === "current" ? "Current Pie" : "Next Pie"} />
+          )}
+          <SliceList slices={displaySlices} total={displayTotal} selectedSliceId={selectedSliceId} onSelect={setSelectedSliceId} compact />
         </section>
 
-        <section className="panel controls-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Next Pie</p>
-              <h2>Plan the next version</h2>
-            </div>
-            <button className="soft-button" type="button" onClick={() => setShowNext((value) => !value)}>
-              {showNext ? "Hide next" : "Show next"}
-            </button>
-          </div>
-          <div className="action-row">
-            <button type="button" onClick={copyCurrentToNext}>Copy current to next</button>
-            <button type="button" onClick={clearNextPie}>Clear next pie</button>
-            <button type="button" onClick={() => setActivePie("next")}>Edit next</button>
-          </div>
-          {showNext ? (
-            <div className="next-preview">
-              <PizzaWindowChart slices={next} title="Next Pie" />
-              <SliceList slices={next} total={totalFor(next)} selectedSliceId={selectedSliceId} onSelect={setSelectedSliceId} />
-            </div>
-          ) : null}
-        </section>
+        <nav className="view-tabs" aria-label="Slice Board sections">
+          <button className={view === "board" ? "active" : ""} type="button" onClick={() => setActiveView("board")}>Board</button>
+          <button className={view === "next" ? "active" : ""} type="button" onClick={() => setActiveView("next")}>Next</button>
+          <button className={view === "edit" ? "active" : ""} type="button" onClick={() => setActiveView("edit")}>Edit</button>
+          <button className={view === "json" ? "active" : ""} type="button" onClick={() => setActiveView("json")}>JSON</button>
+        </nav>
 
-        <section className="panel editor-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Editor</p>
-              <h2>{activePie === "current" ? "Current pie" : "Next pie"}</h2>
-            </div>
-            <button className="soft-button" type="button" onClick={loadStarterIntoActive}>Load starter sections</button>
-          </div>
-
-          <div className="pie-toggle" role="group" aria-label="Choose active pie">
-            <button className={activePie === "current" ? "active" : ""} type="button" onClick={() => setActivePie("current")}>
-              Current
-            </button>
-            <button className={activePie === "next" ? "active" : ""} type="button" onClick={() => setActivePie("next")}>
-              Next
-            </button>
-          </div>
-
-          {selectedSlice ? (
-            <div className="editor-card">
-              <label>
-                Bucket name
-                <input value={selectedSlice.name} onChange={(event) => updateSlice(selectedSlice.id, { name: event.target.value })} />
-              </label>
-              <label>
-                Amount
-                <input
-                  inputMode="decimal"
-                  value={String(selectedSlice.amount)}
-                  onChange={(event) => updateSlice(selectedSlice.id, { amount: toAmount(event.target.value) })}
-                />
-              </label>
-              <label>
-                Topping identity
-                <select
-                  value={selectedSlice.topping}
-                  disabled={selectedSlice.kind !== "named"}
-                  onChange={(event) => updateSlice(selectedSlice.id, { topping: event.target.value as ToppingKind })}
-                >
-                  {selectedSlice.kind === "unassigned" ? <option value="sauce">Sauce only</option> : null}
-                  {selectedSlice.kind === "remaining" ? <option value="cheese">Plain cheese</option> : null}
-                  {selectedSlice.kind === "named"
-                    ? TOPPING_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))
-                    : null}
-                </select>
-              </label>
-              <p className="microcopy">
-                Sauce only is reserved for Unassigned. Plain cheese is reserved for Remaining. Named buckets use actual toppings.
-              </p>
-              <div className="action-row">
-                <button type="button" onClick={() => removeSlice(selectedSlice.id)}>Remove bucket</button>
+        <section className="screen-card workbench">
+          {view === "board" ? (
+            <div className="workbench-grid board-tools">
+              <div className="selected-chip">
+                <span>{selectedSlice ? selectedSlice.name : "No slice"}</span>
+                <strong>{selectedSlice ? money(selectedSlice.amount) : "--"}</strong>
+              </div>
+              <div className="segmented compact-segmented">
+                {(["change", "add", "subtract"] as ToolMode[]).map((mode) => (
+                  <button key={mode} className={toolMode === mode ? "active" : ""} type="button" onClick={() => setToolMode(mode)}>
+                    {mode === "change" ? "Change" : mode === "add" ? "Add" : "Sub"}
+                  </button>
+                ))}
+              </div>
+              <div className="inline-form">
+                <input inputMode="decimal" placeholder="Amount" value={toolAmount} onChange={(event) => setToolAmount(event.target.value)} />
+                <button type="button" onClick={applyAmountTool} disabled={!selectedSlice}>Apply</button>
               </div>
             </div>
-          ) : (
-            <p className="empty-note">No slices in this pie yet. Add a bucket or load starter sections.</p>
-          )}
+          ) : null}
 
-          <div className="tool-card">
-            <h3>Amount tool</h3>
-            <div className="segmented">
-              {(["change", "add", "subtract"] as ToolMode[]).map((mode) => (
-                <button key={mode} className={toolMode === mode ? "active" : ""} type="button" onClick={() => setToolMode(mode)}>
-                  {mode === "change" ? "Change" : mode === "add" ? "Add" : "Subtract"}
-                </button>
-              ))}
+          {view === "next" ? (
+            <div className="workbench-grid next-tools">
+              <div className="action-row tight-row">
+                <button type="button" onClick={() => setShowNext((value) => !value)}>{showNext ? "Hide next" : "Show next"}</button>
+                <button type="button" onClick={copyCurrentToNext}>Copy current</button>
+                <button type="button" onClick={clearNextPie}>Clear next</button>
+              </div>
+              <p className="microcopy">Next total: {money(totalFor(next))}. This keeps next-pie planning on this screen without stacking another full chart.</p>
             </div>
-            <div className="inline-form">
-              <input inputMode="decimal" placeholder="Amount" value={toolAmount} onChange={(event) => setToolAmount(event.target.value)} />
-              <button type="button" onClick={applyAmountTool} disabled={!selectedSlice}>Apply</button>
-            </div>
-          </div>
+          ) : null}
 
-          <div className="tool-card">
-            <h3>Add bucket</h3>
-            <div className="inline-grid">
-              <input placeholder="Bucket name" value={newName} onChange={(event) => setNewName(event.target.value)} />
-              <input inputMode="decimal" placeholder="Amount" value={newAmount} onChange={(event) => setNewAmount(event.target.value)} />
-              <select value={newTopping} onChange={(event) => setNewTopping(event.target.value as ToppingKind)}>
-                {TOPPING_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <button type="button" onClick={addBucket}>Add</button>
+          {view === "edit" ? (
+            <div className="workbench-grid edit-tools">
+              <div className="pie-toggle compact-toggle" role="group" aria-label="Choose active pie">
+                <button className={activePie === "current" ? "active" : ""} type="button" onClick={() => setActivePie("current")}>Current</button>
+                <button className={activePie === "next" ? "active" : ""} type="button" onClick={() => setActivePie("next")}>Next</button>
+              </div>
+              {selectedSlice ? (
+                <div className="compact-editor">
+                  <input aria-label="Bucket name" value={selectedSlice.name} onChange={(event) => updateSlice(selectedSlice.id, { name: event.target.value })} />
+                  <input aria-label="Amount" inputMode="decimal" value={String(selectedSlice.amount)} onChange={(event) => updateSlice(selectedSlice.id, { amount: toAmount(event.target.value) })} />
+                  <select
+                    aria-label="Topping identity"
+                    value={selectedSlice.topping}
+                    disabled={selectedSlice.kind !== "named"}
+                    onChange={(event) => updateSlice(selectedSlice.id, { topping: event.target.value as ToppingKind })}
+                  >
+                    {selectedSlice.kind === "unassigned" ? <option value="sauce">Sauce only</option> : null}
+                    {selectedSlice.kind === "remaining" ? <option value="cheese">Plain cheese</option> : null}
+                    {selectedSlice.kind === "named"
+                      ? TOPPING_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))
+                      : null}
+                  </select>
+                  <button type="button" onClick={() => removeSlice(selectedSlice.id)}>Remove</button>
+                </div>
+              ) : (
+                <p className="empty-note">No selected slice.</p>
+              )}
+              <div className="compact-editor add-row">
+                <input aria-label="New bucket name" placeholder="New bucket" value={newName} onChange={(event) => setNewName(event.target.value)} />
+                <input aria-label="New bucket amount" inputMode="decimal" placeholder="$" value={newAmount} onChange={(event) => setNewAmount(event.target.value)} />
+                <select aria-label="New bucket topping" value={newTopping} onChange={(event) => setNewTopping(event.target.value as ToppingKind)}>
+                  {TOPPING_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+                <button type="button" onClick={addBucket}>Add</button>
+              </div>
+              <button className="full-button" type="button" onClick={loadStarterIntoActive}>Load starter sections</button>
             </div>
-          </div>
-        </section>
+          ) : null}
 
-        <section className="panel io-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">JSON</p>
-              <h2>Export and import</h2>
+          {view === "json" ? (
+            <div className="workbench-grid json-tools">
+              <div className="action-row tight-row">
+                <button type="button" onClick={exportJson}>Export JSON</button>
+                <button type="button" onClick={importJson}>Import JSON</button>
+              </div>
+              <textarea value={importText} onChange={(event) => setImportText(event.target.value)} placeholder="Paste Slice Board JSON here." />
+              {importMessage ? <p className="microcopy">{importMessage}</p> : null}
             </div>
-            <button className="soft-button" type="button" onClick={exportJson}>Export JSON</button>
-          </div>
-          <textarea
-            value={importText}
-            onChange={(event) => setImportText(event.target.value)}
-            placeholder="Paste Slice Board JSON here to import."
-          />
-          <div className="action-row">
-            <button type="button" onClick={importJson}>Import JSON</button>
-          </div>
-          {importMessage ? <p className="microcopy">{importMessage}</p> : null}
+          ) : null}
         </section>
       </div>
     </main>
@@ -622,25 +587,22 @@ function SliceList({
   total,
   selectedSliceId,
   onSelect,
+  compact = false,
 }: {
   slices: Slice[];
   total: number;
   selectedSliceId: string | null;
   onSelect: (id: string) => void;
+  compact?: boolean;
 }) {
   if (!slices.length) return <p className="empty-note">No slices yet.</p>;
 
   return (
-    <div className="slice-list">
+    <div className={compact ? "slice-list compact-list" : "slice-list"}>
       {slices.map((slice) => {
         const pct = percentFor(slice, total) * 100;
         return (
-          <button
-            key={slice.id}
-            type="button"
-            className={`slice-row ${selectedSliceId === slice.id ? "selected" : ""}`}
-            onClick={() => onSelect(slice.id)}
-          >
+          <button key={slice.id} type="button" className={`slice-row ${selectedSliceId === slice.id ? "selected" : ""}`} onClick={() => onSelect(slice.id)}>
             <span>
               <strong>{slice.name}</strong>
               <small>{ALL_TOPPING_LABELS[slice.topping]}</small>
