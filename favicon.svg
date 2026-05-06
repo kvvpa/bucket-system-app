@@ -12,37 +12,33 @@
       <stop offset="0%" stop-color="#f7df8a"/>
       <stop offset="100%" stop-color="#e4b23a"/>
     </linearGradient>
-    <linearGradient id="margherita" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#fff0b8"/>
-      <stop offset="100%" stop-color="#eec75a"/>
-    </linearGradient>
     <linearGradient id="sauce" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#c9441f"/>
+      <stop offset="0%" stop-color="#cf4e24"/>
       <stop offset="100%" stop-color="#9f3117"/>
     </linearGradient>
   </defs>
 
   <rect x="7" y="7" width="82" height="82" rx="18" fill="url(#tile)"/>
-  <rect x="7" y="7" width="82" height="82" rx="18" fill="none" stroke="#d89a3e" stroke-width="2" opacity="0.9"/>
+  <rect x="7" y="7" width="82" height="82" rx="18" fill="none" stroke="#d89a3e" stroke-width="2" opacity="0.8"/>
 
   <circle cx="48" cy="48" r="31" fill="none" stroke="url(#crust)" stroke-width="10"/>
-  <circle cx="48" cy="48" r="23" fill="none" stroke="#241e1b" stroke-width="18"/>
-
-  <circle cx="48" cy="48" r="23" fill="none" stroke="url(#margherita)" stroke-width="18" stroke-dasharray="72 145" transform="rotate(-90 48 48)"/>
-  <circle cx="48" cy="48" r="23" fill="none" stroke="url(#cheese)" stroke-width="18" stroke-dasharray="36 181" stroke-dashoffset="-72" transform="rotate(-90 48 48)"/>
-  <circle cx="48" cy="48" r="23" fill="none" stroke="url(#sauce)" stroke-width="18" stroke-dasharray="37 180" stroke-dashoffset="-108" transform="rotate(-90 48 48)"/>
+  <circle cx="48" cy="48" r="25" fill="none" stroke="url(#sauce)" stroke-width="4" opacity="0.9"/>
+  <circle cx="48" cy="48" r="23" fill="url(#cheese)"/>
+  <circle cx="48" cy="48" r="23" fill="none" stroke="#fff2b8" stroke-width="1.2" opacity="0.4"/>
 
   <circle cx="48" cy="48" r="12.5" fill="#0b0b0c"/>
   <circle cx="48" cy="48" r="13.5" fill="none" stroke="#3b2a1e" stroke-width="2"/>
 
-  <path d="M33 33c3-4 8-4 11 0c-1 5-4 8-9 9c-4-3-4-6-2-9Z" fill="#65a338" stroke="#416723" stroke-width="1"/>
-  <path d="M31 48c3-4 8-4 11 0c-1 5-4 8-9 9c-4-3-4-6-2-9Z" fill="#65a338" stroke="#416723" stroke-width="1"/>
-  <path d="M36 60c3-4 8-4 11 0c-1 5-4 8-9 9c-4-3-4-6-2-9Z" fill="#65a338" stroke="#416723" stroke-width="1"/>
-
-  <g fill="#f2dcc1" stroke="#b08967" stroke-width="1.2">
-    <path d="M59 61c2.6-3.6 7.8-3.8 10.7 0c-0.7 2.6-3.2 4.2-5.3 4.2c-2.1 0-4.7-1.6-5.4-4.2Z"/>
-    <path d="M63.8 65.2v4.8" stroke-linecap="round"/>
-    <path d="M70 52c2.6-3.6 7.8-3.8 10.7 0c-0.7 2.6-3.2 4.2-5.3 4.2c-2.1 0-4.7-1.6-5.4-4.2Z"/>
-    <path d="M74.8 56.2V61" stroke-linecap="round"/>
+  <g stroke="#7b5225" stroke-width="2.4" stroke-linecap="round" opacity="0.82">
+    <path d="M48 35.5 L48 25.5"/>
+    <path d="M60.5 48 L70.5 48"/>
+    <path d="M42.2 59.8 L37.1 68.4"/>
+    <path d="M36.1 42.2 L27.5 37.1"/>
   </g>
+
+  <path d="M35 33c3.1-4 8.2-4 11.2 0c-0.9 5.1-4.2 8.2-9.2 9.2c-4-2.8-4.2-6.1-2-9.2Z" fill="#6ba73a" stroke="#416723" stroke-width="1"/>
+  <path d="M60 59.8c2.7-3.5 7.3-3.5 9.8 0c-0.7 2.3-3 3.8-4.9 3.8s-4.1-1.5-4.9-3.8Z" fill="#eadcc8" stroke="#b08967" stroke-width="1.1"/>
+  <path d="M64.8 63.6v4.4" stroke="#b08967" stroke-width="1.1" stroke-linecap="round"/>
+  <circle cx="59.5" cy="38.5" r="3.8" fill="#b63c2a" stroke="#8a281c" stroke-width="1.1"/>
+  <circle cx="64.4" cy="42.2" r="2.8" fill="#b63c2a" stroke="#8a281c" stroke-width="1"/>
 </svg>
