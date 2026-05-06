@@ -5,16 +5,16 @@ const LEGACY_STORAGE_KEYS = ["joey-fidelity-pie-planner-v1"];
 const CURRENT_DEFAULT_TOTAL = 0;
 const NEXT_DEFAULT_TOTAL = 0;
 const SLICE_COLORS = [
-  "#f5c04d",
-  "#f97316",
+  "#d6a84f",
+  "#c56f32",
   "#2b2724",
-  "#f59e0b",
-  "#ea580c",
-  "#d97706",
-  "#facc15",
-  "#7c3f16",
-  "#f8b84e",
-  "#fb923c",
+  "#b9823a",
+  "#a95f2b",
+  "#8f6530",
+  "#e0bf68",
+  "#6f4a27",
+  "#c99746",
+  "#b86f3b",
 ];
 
 type Slice = {
@@ -251,7 +251,7 @@ function ActionButton({
   disabled?: boolean;
 }) {
   const variants = {
-    primary: "border-amber-200 bg-gradient-to-r from-amber-200 to-orange-300 text-zinc-950 hover:from-amber-100 hover:to-orange-200",
+    primary: "border-amber-200/70 bg-gradient-to-r from-amber-200 to-orange-200 text-zinc-950 hover:from-amber-100 hover:to-orange-100",
     secondary: "border-amber-500/25 bg-zinc-950/80 text-zinc-100 hover:border-amber-400/45 hover:bg-zinc-900",
     ghost: "border-zinc-800 bg-transparent text-zinc-300 hover:border-zinc-600 hover:bg-zinc-950/60",
   };
@@ -294,7 +294,7 @@ function TabButton({ active, children, onClick }: { active: boolean; children: R
       className={cls(
         "rounded-2xl border px-3 py-2 text-xs uppercase tracking-[0.16em] transition",
         active
-          ? "border-amber-200 bg-gradient-to-r from-amber-100 to-orange-300 text-zinc-950"
+          ? "border-amber-200/70 bg-gradient-to-r from-amber-100 to-orange-200 text-zinc-950"
           : "border-amber-500/20 bg-zinc-950/70 text-zinc-300"
       )}
     >
@@ -310,7 +310,7 @@ function MobileNavButton({ active, children, onClick }: { active: boolean; child
       className={cls(
         "rounded-2xl px-3 py-3 text-xs uppercase tracking-[0.16em] transition",
         active
-          ? "bg-gradient-to-r from-amber-100 to-orange-300 text-zinc-950"
+          ? "bg-gradient-to-r from-amber-100 to-orange-200 text-zinc-950"
           : "border border-amber-500/20 bg-zinc-900 text-zinc-300"
       )}
     >
@@ -339,46 +339,34 @@ function PizzaIcon({ className = "h-14 w-14" }: { className?: string }) {
   return (
     <svg viewBox="0 0 96 96" className={className} aria-hidden="true">
       <defs>
-        <filter id="pizzaGlow" x="-40%" y="-40%" width="180%" height="180%">
-          <feGaussianBlur stdDeviation="4" result="blur" />
-          <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
         <linearGradient id="tileGradient" x1="0" x2="1" y1="0" y2="1">
           <stop offset="0%" stopColor="#18181b" />
           <stop offset="100%" stopColor="#09090b" />
         </linearGradient>
         <linearGradient id="crustGradient" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor="#f7cd77" />
-          <stop offset="100%" stopColor="#c68a3b" />
+          <stop offset="0%" stopColor="#d6a84f" />
+          <stop offset="100%" stopColor="#8f6530" />
         </linearGradient>
         <linearGradient id="cheeseGradient" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor="#ffd867" />
-          <stop offset="100%" stopColor="#f2ae2d" />
+          <stop offset="0%" stopColor="#e0bf68" />
+          <stop offset="100%" stopColor="#c99746" />
         </linearGradient>
         <linearGradient id="sauceGradient" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor="#ff8c29" />
-          <stop offset="100%" stopColor="#ea580c" />
+          <stop offset="0%" stopColor="#c56f32" />
+          <stop offset="100%" stopColor="#9a4f27" />
         </linearGradient>
       </defs>
 
       <rect x="7" y="7" width="82" height="82" rx="18" fill="url(#tileGradient)" />
-      <rect x="7" y="7" width="82" height="82" rx="18" fill="none" stroke="#f7b440" strokeWidth="2.5" filter="url(#pizzaGlow)" />
+      <rect x="7" y="7" width="82" height="82" rx="18" fill="none" stroke="#d6a84f" strokeWidth="1.5" opacity="0.55" />
 
-      <circle cx="48" cy="48" r="27" fill="none" stroke="#2a2521" strokeWidth="14" />
-      <circle cx="48" cy="48" r="31" fill="none" stroke="url(#crustGradient)" strokeWidth="6" />
-
-      <circle cx="48" cy="48" r="27" fill="none" stroke="#2b2724" strokeWidth="14" strokeDasharray="66 110" transform="rotate(-90 48 48)" />
-      <circle cx="48" cy="48" r="27" fill="none" stroke="url(#cheeseGradient)" strokeWidth="14" strokeDasharray="60 116" strokeDashoffset="-66" transform="rotate(-90 48 48)" />
-      <circle cx="48" cy="48" r="27" fill="none" stroke="url(#sauceGradient)" strokeWidth="14" strokeDasharray="40 136" strokeDashoffset="-126" transform="rotate(-90 48 48)" />
-
-      <circle cx="66" cy="36" r="4.2" fill="#d63f1f" />
-      <circle cx="74" cy="44" r="3.8" fill="#cf3a1b" />
-      <circle cx="72" cy="57" r="3.2" fill="#c92f14" />
-      <circle cx="58" cy="67" r="4.2" fill="#cf3a1b" />
-      <circle cx="68" cy="68" r="2.5" fill="#e45623" />
+      <path d="M48 20a28 28 0 1 1 0 56 28 28 0 0 1 0-56Z" fill="none" stroke="url(#crustGradient)" strokeWidth="7" />
+      <path d="M48 27a21 21 0 1 1 0 42 21 21 0 0 1 0-42Z" fill="none" stroke="#221f1d" strokeWidth="15" />
+      <path d="M48 27a21 21 0 0 1 18 10" fill="none" stroke="url(#cheeseGradient)" strokeWidth="15" strokeLinecap="round" />
+      <path d="M66 37a21 21 0 0 1-8 29" fill="none" stroke="url(#sauceGradient)" strokeWidth="15" strokeLinecap="round" />
+      <path d="M58 66a21 21 0 0 1-28-16" fill="none" stroke="url(#cheeseGradient)" strokeWidth="15" strokeLinecap="round" opacity="0.9" />
+      <circle cx="48" cy="48" r="15" fill="#0b0b0c" />
+      <circle cx="48" cy="48" r="16" fill="none" stroke="#312720" strokeWidth="2" />
     </svg>
   );
 }
@@ -398,18 +386,6 @@ function Panel({ title, children, right }: { title: string; children: React.Reac
   );
 }
 
-function PizzaToppingsOverlay() {
-  return (
-    <>
-      <div className="absolute right-[22%] top-[20%] h-4 w-4 rounded-full border border-red-400/30 bg-red-600/90 shadow-lg shadow-red-950/70" />
-      <div className="absolute right-[14%] top-[31%] h-3.5 w-3.5 rounded-full border border-red-400/30 bg-red-600/90 shadow-lg shadow-red-950/70" />
-      <div className="absolute right-[17%] top-[55%] h-3 w-3 rounded-full border border-red-400/30 bg-red-600/85 shadow-lg shadow-red-950/70" />
-      <div className="absolute left-[31%] bottom-[21%] h-4 w-4 rounded-full border border-red-400/30 bg-red-600/90 shadow-lg shadow-red-950/70" />
-      <div className="absolute left-[47%] bottom-[16%] h-3 w-3 rounded-full border border-red-400/30 bg-orange-500/80 shadow-lg shadow-orange-950/70" />
-    </>
-  );
-}
-
 function DonutChart({ total, sections, size = 220 }: { total: number; sections: Slice[]; size?: number }) {
   const chart = buildChartState(total, sections);
   const radius = 56;
@@ -419,10 +395,10 @@ function DonutChart({ total, sections, size = 220 }: { total: number; sections: 
 
   return (
     <div className="relative shrink-0" style={{ height: size, width: size }}>
-      <div className="absolute inset-5 rounded-full bg-orange-500/8 blur-2xl" />
+      <div className="absolute inset-5 rounded-full bg-amber-500/5 blur-2xl" />
       <svg viewBox="0 0 180 180" className="relative h-full w-full drop-shadow-[0_12px_30px_rgba(0,0,0,0.45)]">
-        <circle cx="90" cy="90" r="65" fill="none" stroke="#c98b3a" strokeWidth="10" />
-        <circle cx="90" cy="90" r="64" fill="none" stroke="#f4c76b" strokeWidth="4" opacity="0.85" />
+        <circle cx="90" cy="90" r="65" fill="none" stroke="#8f6530" strokeWidth="10" opacity="0.9" />
+        <circle cx="90" cy="90" r="64" fill="none" stroke="#d6a84f" strokeWidth="4" opacity="0.65" />
         <circle cx="90" cy="90" r={radius} fill="none" stroke="#1b1816" strokeWidth={stroke} />
         {chart.chartTotal > 0
           ? chart.segments.map((segment) => {
@@ -449,7 +425,6 @@ function DonutChart({ total, sections, size = 220 }: { total: number; sections: 
         <circle cx="90" cy="90" r="33" fill="#0b0b0c" />
         <circle cx="90" cy="90" r="34" fill="none" stroke="#312720" strokeWidth="3" />
       </svg>
-      <PizzaToppingsOverlay />
       <div className="absolute inset-0 flex items-center justify-center px-5 text-center">
         {chart.template ? (
           <div className="max-w-[120px]">
