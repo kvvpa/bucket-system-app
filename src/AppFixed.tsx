@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import logoPng from "./img/slice-board-logo.png";
-import pizzaChartPng from "./img/slice-board-pizza-chart.png";
+import pizzaSauceOnlyPng from "./img/pizza/pizza-sauce-only.png";
+import pizzaCheeseOnlyPng from "./img/pizza/pizza-cheese-only.png";
+import pizzaPepperoniPng from "./img/pizza/pizza-pepperoni.png";
+import pizzaBasilPng from "./img/pizza/pizza-basil.png";
+import pizzaMushroomPng from "./img/pizza/pizza-mushroom.png";
+import pizzaOlivePng from "./img/pizza/pizza-olive.png";
+import pizzaPepperPng from "./img/pizza/pizza-pepper.png";
+import pizzaOnionPng from "./img/pizza/pizza-onion.png";
 
 const STORAGE_KEY = "slice-board-v1";
 const LEGACY_STORAGE_KEYS = ["joey-fidelity-pie-planner-v1"];
@@ -38,6 +45,17 @@ type StoredState = {
   showNext?: unknown;
   activePie?: unknown;
   selectedSliceId?: unknown;
+};
+
+const PIZZA_TEXTURES: Record<ToppingKind, string> = {
+  sauce: pizzaSauceOnlyPng,
+  cheese: pizzaCheeseOnlyPng,
+  pepperoni: pizzaPepperoniPng,
+  basil: pizzaBasilPng,
+  mushroom: pizzaMushroomPng,
+  olive: pizzaOlivePng,
+  pepper: pizzaPepperPng,
+  onion: pizzaOnionPng,
 };
 
 const TOPPING_OPTIONS: { value: ToppingKind; label: string }[] = [
@@ -258,21 +276,35 @@ function PizzaWindowChart({ slices, title }: { slices: Slice[]; title: string })
             <stop offset="66%" stopColor="rgba(255,255,255,0.02)" />
             <stop offset="100%" stopColor="rgba(0,0,0,0.34)" />
           </radialGradient>
+          <mask id={`${chartId}-donut-mask`} maskUnits="userSpaceOnUse">
+            <rect x="0" y="0" width="320" height="320" fill="black" />
+            <circle cx={cx} cy={cy} r={outerRadius} fill="white" />
+            <circle cx={cx} cy={cy} r={innerRadius} fill="black" />
+          </mask>
         </defs>
 
         <circle cx={cx} cy={cy} r={outerRadius + 4} className="pizza-glow-ring" />
 
-        {segments.length === 0 ? (
-          <image href={pizzaChartPng} x="16" y="16" width="288" height="288" preserveAspectRatio="xMidYMid slice" opacity="0.32" />
-        ) : (
-          segments.map((segment, index) => (
-            <g key={segment.slice.id} clipPath={`url(#${chartId}-clip-${index})`}>
-              <image href={pizzaChartPng} x="16" y="16" width="288" height="288" preserveAspectRatio="xMidYMid slice" />
-            </g>
-          ))
-        )}
+        <g mask={`url(#${chartId}-donut-mask)`}>
+          {segments.length === 0 ? (
+            <image href={pizzaCheeseOnlyPng} x="16" y="16" width="288" height="288" preserveAspectRatio="xMidYMid slice" opacity="0.32" />
+          ) : (
+            segments.map((segment, index) => (
+              <g key={segment.slice.id} clipPath={`url(#${chartId}-clip-${index})`}>
+                <image
+                  href={PIZZA_TEXTURES[segment.slice.topping]}
+                  x="16"
+                  y="16"
+                  width="288"
+                  height="288"
+                  preserveAspectRatio="xMidYMid slice"
+                />
+              </g>
+            ))
+          )}
+          <circle cx={cx} cy={cy} r={outerRadius} fill={`url(#${chartId}-shade)`} className="pizza-surface-shade" />
+        </g>
 
-        <circle cx={cx} cy={cy} r={outerRadius} fill={`url(#${chartId}-shade)`} className="pizza-surface-shade" />
         {segments.map((segment) => {
           if (segment.span >= 359.9) return null;
           const outer = polarPoint(cx, cy, outerRadius, segment.endAngle);
@@ -338,7 +370,7 @@ function App() {
   useEffect(() => {
     const payload = {
       app: "Slice Board",
-      version: 3,
+      version: 4,
       current,
       next,
       showNext,
@@ -416,7 +448,7 @@ function App() {
     const payload = JSON.stringify(
       {
         app: "Slice Board",
-        version: 3,
+        version: 4,
         current,
         next,
         showNext,
@@ -474,7 +506,7 @@ function App() {
               <p className="eyebrow">{displayPie === "current" ? "Current Pie" : "Next Pie"}</p>
               <h2>{money(displayTotal)}</h2>
             </div>
-            <span className="temp-badge">Temp raster</span>
+            <span className="temp-badge">Raster slices</span>
           </div>
           {displayPie === "next" && !showNext ? (
             <div className="hidden-next-note">Next pie is hidden. Tap Show in Next.</div>
