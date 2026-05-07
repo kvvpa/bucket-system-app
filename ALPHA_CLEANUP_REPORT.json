@@ -1,0 +1,50 @@
+[
+  {
+    "file": "pizza-basil.png",
+    "transparent_pixels": 557700,
+    "semi_transparent_pixels": 1695,
+    "opaque_pixels": 1013121
+  },
+  {
+    "file": "pizza-cheese-only.png",
+    "transparent_pixels": 559355,
+    "semi_transparent_pixels": 1932,
+    "opaque_pixels": 1011229
+  },
+  {
+    "file": "pizza-mushroom.png",
+    "transparent_pixels": 559141,
+    "semi_transparent_pixels": 1779,
+    "opaque_pixels": 1011596
+  },
+  {
+    "file": "pizza-olive.png",
+    "transparent_pixels": 559798,
+    "semi_transparent_pixels": 1697,
+    "opaque_pixels": 1011021
+  },
+  {
+    "file": "pizza-onion.png",
+    "transparent_pixels": 559433,
+    "semi_transparent_pixels": 1806,
+    "opaque_pixels": 1011277
+  },
+  {
+    "file": "pizza-pepper.png",
+    "transparent_pixels": 559190,
+    "semi_transparent_pixels": 1671,
+    "opaque_pixels": 1011655
+  },
+  {
+    "file": "pizza-pepperoni.png",
+    "transparent_pixels": 145376,
+    "semi_transparent_pixels": 829,
+    "opaque_pixels": 263395
+  },
+  {
+    "file": "pizza-sauce-only.png",
+    "transparent_pixels": 559341,
+    "semi_transparent_pixels": 1737,
+    "opaque_pixels": 1011438
+  }
+]

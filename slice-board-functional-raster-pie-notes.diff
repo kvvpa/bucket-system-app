@@ -1,0 +1,8 @@
+diff --git a/src/AppFixed.tsx b/src/AppFixed.tsx
+--- a/src/AppFixed.tsx
++++ b/src/AppFixed.tsx
+@@
+- Uses temporary single pizza chart anchor.
++ Uses per-slice raster pizza textures from src/img/pizza/.
++ Uses SVG only for wedge clipping and donut masking.
++ Visible pizza art comes from PNG assets.
