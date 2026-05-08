@@ -30,6 +30,150 @@
   background: rgba(0, 0, 0, 0.18);
 }
 
+.custom-selected-panel {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  position: relative;
+  overflow: visible;
+}
+
+.bucket-picker-empty {
+  color: #a99172;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.bucket-picker {
+  position: relative;
+  min-width: 0;
+}
+
+.bucket-picker > summary {
+  list-style: none;
+}
+
+.bucket-picker > summary::-webkit-details-marker {
+  display: none;
+}
+
+.bucket-picker-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 48px;
+  width: 100%;
+  border: 1px solid rgba(234, 157, 54, 0.34);
+  border-radius: 14px;
+  padding: 8px 10px;
+  cursor: pointer;
+  background:
+    linear-gradient(180deg, rgba(35, 27, 21, 0.96), rgba(13, 11, 10, 0.96)),
+    #15100d;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 214, 153, 0.05),
+    0 10px 26px rgba(0, 0, 0, 0.2);
+}
+
+.bucket-picker-summary span,
+.bucket-picker-option span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.bucket-picker-summary small,
+.bucket-picker-option small {
+  overflow: hidden;
+  color: #a99172;
+  font-size: 0.58rem;
+  font-weight: 850;
+  letter-spacing: 0.11em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.bucket-picker-summary strong,
+.bucket-picker-option strong {
+  overflow: hidden;
+  color: #fff2dc;
+  font-size: 0.86rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bucket-picker-summary-meta {
+  justify-items: end;
+  min-width: 100px;
+}
+
+.bucket-picker-summary-meta small {
+  color: #bca88d;
+  font-size: 0.6rem;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.bucket-picker[open] .bucket-picker-summary {
+  border-color: rgba(241, 178, 79, 0.66);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 214, 153, 0.08),
+    0 18px 36px rgba(0, 0, 0, 0.28),
+    0 0 0 3px rgba(216, 132, 37, 0.11);
+}
+
+.bucket-picker-menu {
+  position: absolute;
+  z-index: 40;
+  right: 0;
+  left: 0;
+  top: calc(100% + 7px);
+  display: grid;
+  gap: 5px;
+  max-height: min(310px, 44dvh);
+  overflow: auto;
+  border: 1px solid rgba(234, 157, 54, 0.34);
+  border-radius: 16px;
+  padding: 7px;
+  background:
+    linear-gradient(180deg, rgba(24, 19, 16, 0.99), rgba(10, 9, 8, 0.99)),
+    #100d0b;
+  box-shadow:
+    0 22px 50px rgba(0, 0, 0, 0.52),
+    0 0 0 1px rgba(255, 214, 153, 0.04);
+}
+
+.bucket-picker-option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 44px;
+  width: 100%;
+  border: 1px solid rgba(255, 214, 153, 0.08);
+  border-radius: 12px;
+  padding: 8px 9px;
+  color: #fff2dc;
+  background: rgba(255, 255, 255, 0.035);
+  text-align: left;
+}
+
+.bucket-picker-option:hover,
+.bucket-picker-option:focus-visible {
+  outline: none;
+  border-color: rgba(241, 178, 79, 0.5);
+  background: rgba(234, 157, 54, 0.11);
+}
+
+.bucket-picker-option.selected {
+  border-color: rgba(241, 178, 79, 0.58);
+  background: linear-gradient(180deg, rgba(241, 178, 79, 0.18), rgba(216, 132, 37, 0.1));
+}
+
+/* Legacy selected-panel classes are kept for older fallback app file only. */
 .bucket-select-label {
   display: grid;
   gap: 4px;
@@ -42,32 +186,6 @@
   font-weight: 850;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-}
-
-.bucket-select-label select {
-  color: #fff4df;
-  background:
-    linear-gradient(180deg, rgba(35, 27, 21, 0.98), rgba(13, 11, 10, 0.98)),
-    #15100d;
-  border-color: rgba(234, 157, 54, 0.5);
-  box-shadow: inset 0 0 0 1px rgba(255, 214, 153, 0.06);
-  color-scheme: dark;
-  font-family: inherit;
-  font-weight: 800;
-}
-
-.bucket-select-label select option,
-.bucket-select-label select optgroup {
-  color: #fff4df;
-  background-color: #15100d;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-weight: 700;
-}
-
-.bucket-select-label select option:checked,
-.bucket-select-label select option:hover {
-  color: #271706;
-  background-color: #e79f37;
 }
 
 .selected-summary {
@@ -104,6 +222,7 @@
 
 .chart-stage {
   grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: visible;
 }
 
 .compact-editor {
@@ -310,8 +429,14 @@
     padding: 6px;
   }
 
-  .selected-summary span {
+  .selected-summary span,
+  .bucket-picker-summary-meta small {
     display: none;
+  }
+
+  .bucket-picker-summary {
+    min-height: 42px;
+    padding: 6px 8px;
   }
 
   .compact-editor {
@@ -339,7 +464,8 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .selected-summary {
+  .selected-summary,
+  .bucket-picker-summary-meta {
     display: none;
   }
 
