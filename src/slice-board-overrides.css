@@ -18,6 +18,35 @@
   letter-spacing: 0.06em;
 }
 
+@media (min-width: 760px) {
+  .dashboard-frame {
+    width: min(100%, 620px);
+    grid-template-rows: auto auto minmax(0, 1fr) auto minmax(118px, 18dvh);
+  }
+
+  .chart-stage {
+    grid-template-rows: auto minmax(0, 1fr) minmax(76px, 14dvh);
+  }
+
+  .pizza-chart-svg {
+    width: min(100%, 46dvh, 430px);
+  }
+
+  .pizza-center-label span {
+    font-size: 1.08rem;
+  }
+}
+
+@media (min-width: 1100px) and (min-height: 760px) {
+  .dashboard-frame {
+    width: min(100%, 720px);
+  }
+
+  .pizza-chart-svg {
+    width: min(100%, 52dvh, 520px);
+  }
+}
+
 @media (max-width: 380px) {
   .view-tabs button {
     font-size: 0.62rem;
