@@ -64,7 +64,7 @@
   white-space: nowrap;
 }
 
-/* One-screen mobile: selected bucket replaces visible bucket ledger. */
+/* One-screen rule: bucket selection replaces visible bucket ledger. */
 .desktop-slice-list {
   display: none;
 }
@@ -210,30 +210,16 @@
 
   .chart-stage {
     grid-area: chart;
-    grid-template-rows: auto minmax(0, 1fr) minmax(84px, 13dvh);
+    grid-template-rows: auto minmax(0, 1fr) auto;
     gap: 8px;
   }
 
   .mobile-selected-panel {
-    display: none;
+    display: grid;
+    min-height: 58px;
   }
 
   .desktop-slice-list {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-content: start;
-  }
-
-  .slice-row {
-    min-height: 0;
-    height: 40px;
-  }
-
-  .slice-row small {
-    display: none;
-  }
-
-  .slice-row:nth-child(n + 7) {
     display: none;
   }
 
