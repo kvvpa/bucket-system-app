@@ -70,7 +70,8 @@
 }
 
 .slice-list,
-.edit-tools {
+.edit-tools,
+.data-tools {
   overflow: hidden;
   overscroll-behavior: none;
 }
@@ -97,6 +98,86 @@
 
 .json-tools textarea {
   display: none;
+}
+
+.data-tools {
+  gap: 7px;
+}
+
+.cloud-data-panel {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  border: 1px solid rgba(255, 214, 153, 0.1);
+  border-radius: 16px;
+  padding: 9px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.cloud-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cloud-heading strong,
+.cloud-heading span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cloud-heading strong {
+  color: #fff2dc;
+  font-size: 0.84rem;
+}
+
+.cloud-heading span {
+  color: #a99172;
+  font-size: 0.66rem;
+  font-weight: 750;
+}
+
+.cloud-signin-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px;
+}
+
+.cloud-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.cloud-actions button,
+.cloud-signin-row button {
+  min-height: 36px;
+  border: 0;
+  border-radius: 13px;
+  padding: 0 9px;
+  color: #271706;
+  background: linear-gradient(180deg, #f1b24f, #d68425);
+  box-shadow: 0 10px 22px rgba(216, 132, 37, 0.2);
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.cloud-message {
+  margin: 0;
+  color: #a99172;
+  font-size: 0.68rem;
+  line-height: 1.25;
+}
+
+.cloud-message.success {
+  color: #d9c19b;
+}
+
+.cloud-message.error {
+  color: #ffb08b;
 }
 
 /* Desktop uses width instead of stacking downward. */
@@ -229,6 +310,11 @@
   .compact-editor button {
     display: none;
   }
+
+  .cloud-heading span,
+  .cloud-message {
+    display: none;
+  }
 }
 
 @media (max-width: 380px) {
@@ -243,5 +329,9 @@
 
   .selected-summary {
     display: none;
+  }
+
+  .cloud-actions {
+    grid-template-columns: 1fr;
   }
 }
