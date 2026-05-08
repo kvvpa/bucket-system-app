@@ -3,7 +3,11 @@
 }
 
 .board-tools {
-  grid-template-rows: auto auto auto auto;
+  grid-template-rows: auto auto auto;
+}
+
+.board-tools .selected-chip {
+  display: none;
 }
 
 .board-tools .tight-row {
@@ -20,19 +24,17 @@
 
 .mobile-selected-panel {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
-  align-items: end;
-  min-height: 58px;
+  align-items: stretch;
+  min-height: 70px;
   border: 1px solid rgba(255, 214, 153, 0.1);
-  border-radius: 16px;
+  border-radius: 18px;
   padding: 8px;
-  background: rgba(0, 0, 0, 0.18);
+  background: rgba(0, 0, 0, 0.2);
 }
 
 .custom-selected-panel {
-  grid-template-columns: minmax(0, 1fr);
-  align-items: stretch;
   position: relative;
   overflow: visible;
 }
@@ -61,18 +63,31 @@
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
-  min-height: 48px;
+  min-height: 56px;
   width: 100%;
-  border: 1px solid rgba(234, 157, 54, 0.34);
-  border-radius: 14px;
-  padding: 8px 10px;
+  border: 1px solid rgba(234, 157, 54, 0.48);
+  border-radius: 16px;
+  padding: 10px 12px;
   cursor: pointer;
   background:
-    linear-gradient(180deg, rgba(35, 27, 21, 0.96), rgba(13, 11, 10, 0.96)),
+    linear-gradient(180deg, rgba(42, 31, 22, 0.98), rgba(15, 12, 10, 0.98)),
     #15100d;
   box-shadow:
-    inset 0 0 0 1px rgba(255, 214, 153, 0.05),
-    0 10px 26px rgba(0, 0, 0, 0.2);
+    inset 0 0 0 1px rgba(255, 214, 153, 0.06),
+    0 10px 26px rgba(0, 0, 0, 0.22),
+    0 0 0 3px rgba(216, 132, 37, 0.08);
+}
+
+.bucket-picker-summary::after {
+  content: "Tap to switch";
+  position: absolute;
+  right: 14px;
+  bottom: 6px;
+  color: #c99755;
+  font-size: 0.56rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .bucket-picker-summary span,
@@ -98,7 +113,7 @@
 .bucket-picker-option strong {
   overflow: hidden;
   color: #fff2dc;
-  font-size: 0.86rem;
+  font-size: 1.02rem;
   font-weight: 900;
   letter-spacing: -0.02em;
   text-overflow: ellipsis;
@@ -107,22 +122,33 @@
 
 .bucket-picker-summary-meta {
   justify-items: end;
-  min-width: 100px;
+  min-width: 108px;
+  padding-bottom: 10px;
+}
+
+.bucket-picker-summary-meta::before {
+  content: "v";
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  color: #f1b24f;
+  font-size: 0.86rem;
+  font-weight: 900;
 }
 
 .bucket-picker-summary-meta small {
   color: #bca88d;
-  font-size: 0.6rem;
+  font-size: 0.66rem;
   letter-spacing: normal;
   text-transform: none;
 }
 
 .bucket-picker[open] .bucket-picker-summary {
-  border-color: rgba(241, 178, 79, 0.66);
+  border-color: rgba(241, 178, 79, 0.7);
   box-shadow:
     inset 0 0 0 1px rgba(255, 214, 153, 0.08),
     0 18px 36px rgba(0, 0, 0, 0.28),
-    0 0 0 3px rgba(216, 132, 37, 0.11);
+    0 0 0 3px rgba(216, 132, 37, 0.13);
 }
 
 .bucket-picker-menu {
@@ -133,9 +159,9 @@
   top: calc(100% + 7px);
   display: grid;
   gap: 5px;
-  max-height: min(310px, 44dvh);
+  max-height: min(238px, 30dvh);
   overflow: auto;
-  border: 1px solid rgba(234, 157, 54, 0.34);
+  border: 1px solid rgba(234, 157, 54, 0.36);
   border-radius: 16px;
   padding: 7px;
   background:
@@ -325,6 +351,61 @@
   color: #ffb08b;
 }
 
+@media (max-width: 899px) {
+  .app-shell {
+    min-height: 100dvh;
+    padding: 8px;
+  }
+
+  .dashboard-frame {
+    gap: 7px;
+  }
+
+  .hero-card {
+    min-height: 74px;
+    padding: 10px 12px;
+  }
+
+  .stats-grid {
+    gap: 6px;
+  }
+
+  .stat-card {
+    min-height: 62px;
+    padding: 10px 12px;
+  }
+
+  .chart-stage {
+    min-height: 0;
+    gap: 7px;
+    padding: 14px 14px 10px;
+  }
+
+  .pizza-chart-svg {
+    width: min(100%, 48dvh, 390px);
+  }
+
+  .view-tabs {
+    gap: 6px;
+  }
+
+  .view-tabs button {
+    min-height: 44px;
+  }
+
+  .workbench {
+    padding: 10px;
+  }
+
+  .board-tools {
+    gap: 7px;
+  }
+
+  .inline-form {
+    gap: 7px;
+  }
+}
+
 /* Desktop uses width instead of stacking downward. */
 @media (min-width: 900px) {
   .app-shell {
@@ -402,7 +483,7 @@
   }
 
   .board-tools {
-    grid-template-rows: auto auto auto auto;
+    grid-template-rows: auto auto;
   }
 
   .compact-editor.add-row,
@@ -425,18 +506,27 @@
 
 @media (max-height: 720px) {
   .mobile-selected-panel {
-    min-height: 50px;
+    min-height: 58px;
     padding: 6px;
   }
 
   .selected-summary span,
-  .bucket-picker-summary-meta small {
+  .bucket-picker-summary-meta small,
+  .bucket-picker-summary::after {
     display: none;
   }
 
   .bucket-picker-summary {
-    min-height: 42px;
-    padding: 6px 8px;
+    min-height: 48px;
+    padding: 7px 9px;
+  }
+
+  .bucket-picker-summary-meta {
+    padding-bottom: 0;
+  }
+
+  .bucket-picker-menu {
+    max-height: min(200px, 28dvh);
   }
 
   .compact-editor {
@@ -458,10 +548,6 @@
   .view-tabs button {
     font-size: 0.62rem;
     letter-spacing: 0.04em;
-  }
-
-  .mobile-selected-panel {
-    grid-template-columns: minmax(0, 1fr);
   }
 
   .selected-summary,
