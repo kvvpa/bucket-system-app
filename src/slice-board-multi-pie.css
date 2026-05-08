@@ -1,0 +1,158 @@
+.multi-pie-app .hero-subtitle {
+  color: #d3bf9f;
+}
+
+.multi-pie-stage {
+  gap: 5px;
+  padding-bottom: 8px;
+}
+
+.multi-stage-heading {
+  align-items: start;
+}
+
+.pie-count-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  min-height: 34px;
+  border: 1px solid rgba(234, 157, 54, 0.22);
+  border-radius: 999px;
+  color: #d6bd98;
+  background: rgba(0, 0, 0, 0.2);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.multi-pie-chart-svg {
+  width: min(100%, 44dvh, 390px);
+  overflow: visible;
+}
+
+.multi-view-tabs {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.multi-view-tabs button {
+  min-width: 0;
+  width: 100%;
+}
+
+.multi-board-tools {
+  grid-template-rows: auto auto auto;
+}
+
+.pie-actions-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.pie-actions-row button,
+.pie-name-editor button,
+.multi-add-row button {
+  min-height: 40px;
+  border: 1px solid rgba(255, 214, 153, 0.1);
+  border-radius: 14px;
+  color: #d6bd98;
+  background: rgba(255, 255, 255, 0.04);
+  font-weight: 900;
+}
+
+.pie-actions-row button:not(:disabled):hover,
+.pie-name-editor button:not(:disabled):hover,
+.multi-add-row button:not(:disabled):hover {
+  border-color: rgba(241, 178, 79, 0.48);
+  color: #271706;
+  background: linear-gradient(180deg, #f1b24f, #d68425);
+}
+
+.pie-actions-row button:disabled,
+.pie-name-editor button:disabled {
+  opacity: 0.42;
+}
+
+.multi-edit-tools {
+  gap: 8px;
+}
+
+.pie-name-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.pie-name-editor label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.pie-name-editor label span {
+  color: #a99172;
+  font-size: 0.58rem;
+  font-weight: 850;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.pie-name-editor input {
+  min-width: 0;
+}
+
+.multi-add-row {
+  display: grid !important;
+}
+
+@media (max-width: 899px) {
+  .multi-pie-stage {
+    padding-top: 12px;
+  }
+
+  .multi-pie-chart-svg {
+    width: min(100%, 41dvh, 370px);
+  }
+
+  .multi-board-tools {
+    gap: 7px;
+  }
+
+  .pie-actions-row button {
+    min-height: 42px;
+    font-size: 0.72rem;
+  }
+}
+
+@media (max-height: 760px) {
+  .multi-pie-chart-svg {
+    width: min(100%, 38dvh, 345px);
+  }
+
+  .pie-actions-row button {
+    min-height: 38px;
+  }
+}
+
+@media (max-height: 700px) {
+  .multi-pie-chart-svg {
+    width: min(100%, 35dvh, 318px);
+  }
+
+  .pie-actions-row {
+    display: none;
+  }
+}
+
+@media (min-width: 900px) {
+  .multi-pie-chart-svg {
+    width: min(100%, 61dvh, 610px);
+  }
+
+  .multi-board-tools {
+    grid-template-rows: auto auto auto;
+  }
+}
