@@ -304,7 +304,7 @@ function SliceList({ slices, total, selectedSliceId, onSelect }: { slices: Slice
   if (!slices.length) return <p className="empty-note">No slices yet.</p>;
 
   return (
-    <div className="slice-list compact-list">
+    <div className="slice-list compact-list desktop-slice-list">
       {slices.map((slice) => {
         const pct = percentFor(slice, total) * 100;
         return (
@@ -320,6 +320,33 @@ function SliceList({ slices, total, selectedSliceId, onSelect }: { slices: Slice
           </button>
         );
       })}
+    </div>
+  );
+}
+
+function SelectedSlicePanel({ slices, total, selectedSliceId, onSelect }: { slices: Slice[]; total: number; selectedSliceId: string | null; onSelect: (id: string) => void }) {
+  const selected = slices.find((slice) => slice.id === selectedSliceId) ?? slices[0] ?? null;
+
+  if (!selected) {
+    return <div className="mobile-selected-panel"><span>No slices yet.</span></div>;
+  }
+
+  const percent = percentFor(selected, total) * 100;
+
+  return (
+    <div className="mobile-selected-panel">
+      <label className="bucket-select-label">
+        <span>Selected bucket</span>
+        <select value={selected.id} onChange={(event) => onSelect(event.target.value)}>
+          {slices.map((slice) => (
+            <option key={slice.id} value={slice.id}>{slice.name}</option>
+          ))}
+        </select>
+      </label>
+      <div className="selected-summary">
+        <strong>{money(selected.amount)}</strong>
+        <span>{percent.toFixed(percent > 0 && percent < 1 ? 1 : 0)}% · {TOPPING_LABELS[selected.topping]}</span>
+      </div>
     </div>
   );
 }
@@ -372,7 +399,7 @@ function App() {
       STORAGE_KEY,
       JSON.stringify({
         app: "Slice Board",
-        version: 5,
+        version: 6,
         current,
         next: planning,
         planningVisible,
@@ -465,7 +492,7 @@ function App() {
   }
 
   function exportJson() {
-    const payload = JSON.stringify({ app: "Slice Board", version: 5, current, next: planning, planningVisible, showNext: planningVisible }, null, 2);
+    const payload = JSON.stringify({ app: "Slice Board", version: 6, current, next: planning, planningVisible, showNext: planningVisible }, null, 2);
     const blob = new Blob([payload], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -520,16 +547,15 @@ function App() {
             <span className="temp-badge">Raster slices</span>
           </div>
           <PizzaWindowChart slices={displaySlices} title={displayTitle} />
+          <SelectedSlicePanel slices={displaySlices} total={displayTotal} selectedSliceId={selectedSliceId} onSelect={setSelectedSliceId} />
           <SliceList slices={displaySlices} total={displayTotal} selectedSliceId={selectedSliceId} onSelect={setSelectedSliceId} />
         </section>
 
         <nav className={`view-tabs ${planningVisible ? "" : "planning-hidden"}`} aria-label="Slice Board sections">
           <button className={view === "current" ? "active" : ""} type="button" onClick={() => setActiveView("current")}>Current Pie</button>
-          {planningVisible ? (
-            <button className={view === "planning" ? "active" : ""} type="button" onClick={() => setActiveView("planning")}>Planning Pie</button>
-          ) : null}
+          {planningVisible ? <button className={view === "planning" ? "active" : ""} type="button" onClick={() => setActiveView("planning")}>Planning Pie</button> : null}
           <button className={view === "edit" ? "active" : ""} type="button" onClick={() => setActiveView("edit")}>Edit</button>
-          <button className={view === "json" ? "active" : ""} type="button" onClick={() => setActiveView("json")}>JSON</button>
+          <button className={view === "json" ? "active" : ""} type="button" onClick={() => setActiveView("json")}>Data</button>
         </nav>
 
         <section className="screen-card workbench">
@@ -548,11 +574,7 @@ function App() {
                 <input inputMode="decimal" placeholder="Amount" value={toolAmount} onChange={(event) => setToolAmount(event.target.value)} />
                 <button type="button" onClick={applyAmountTool} disabled={!selectedSlice}>Apply</button>
               </div>
-              {!planningVisible ? (
-                <div className="action-row tight-row">
-                  <button type="button" onClick={showPlanningPie}>Show Planning Pie</button>
-                </div>
-              ) : null}
+              {!planningVisible ? <div className="action-row tight-row"><button type="button" onClick={showPlanningPie}>Show Planning Pie</button></div> : null}
             </div>
           ) : null}
 
@@ -600,8 +622,8 @@ function App() {
           {view === "json" ? (
             <div className="workbench-grid json-tools">
               <div className="action-row tight-row">
-                <button type="button" onClick={exportJson}>Export JSON</button>
-                <button type="button" onClick={importJson}>Import JSON</button>
+                <button type="button" onClick={exportJson}>Export Backup</button>
+                <button type="button" onClick={importJson}>Import Backup</button>
               </div>
               <textarea value={importText} onChange={(event) => setImportText(event.target.value)} placeholder="Paste Slice Board JSON here." />
               {importMessage ? <p className="microcopy">{importMessage}</p> : null}
