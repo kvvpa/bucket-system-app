@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import App from './AppSliceBoard'
+import App from './AppSliceBoardCloud'
 import './index.css'
 import './slice-board-overrides.css'
 
