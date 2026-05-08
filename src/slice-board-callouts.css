@@ -2,6 +2,10 @@
   overflow: hidden;
 }
 
+.callout-stage-v2 {
+  gap: 6px;
+}
+
 .callout-chart-wrap {
   min-height: 0;
 }
@@ -9,6 +13,11 @@
 .callout-chart-svg {
   width: min(100%, 52dvh, 430px);
   overflow: visible;
+}
+
+.callout-chart-svg-v2 {
+  width: min(100%, 42dvh, 360px);
+  max-height: 100%;
 }
 
 .pizza-segment {
@@ -61,6 +70,32 @@
   padding: 7px;
   border-radius: 16px;
   background: rgba(0, 0, 0, 0.16);
+}
+
+.callout-selected-panel-v2 {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: stretch;
+  min-height: 52px;
+  padding: 6px;
+}
+
+.bucket-step-button {
+  min-width: 45px;
+  border: 1px solid rgba(234, 157, 54, 0.34);
+  border-radius: 13px;
+  color: #d6bd98;
+  background: rgba(255, 255, 255, 0.035);
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.bucket-step-button:active,
+.bucket-step-button:hover {
+  border-color: rgba(241, 178, 79, 0.66);
+  color: #271706;
+  background: linear-gradient(180deg, #f1b24f, #d68425);
 }
 
 .selected-callout-summary {
@@ -132,8 +167,16 @@
     padding: 12px 12px 9px;
   }
 
+  .callout-stage-v2 {
+    padding-bottom: 8px;
+  }
+
   .callout-chart-svg {
     width: min(100%, 45dvh, 390px);
+  }
+
+  .callout-chart-svg-v2 {
+    width: min(100%, 39dvh, 350px);
   }
 
   .pizza-callout-name {
@@ -158,9 +201,18 @@
     width: min(100%, 42dvh, 360px);
   }
 
+  .callout-chart-svg-v2 {
+    width: min(100%, 36dvh, 325px);
+  }
+
   .callout-selected-panel {
     min-height: 50px;
     padding: 6px;
+  }
+
+  .callout-selected-panel-v2 {
+    min-height: 48px;
+    padding: 5px;
   }
 
   .selected-callout-summary {
@@ -173,8 +225,39 @@
   }
 }
 
+@media (max-height: 700px) {
+  .callout-chart-svg-v2 {
+    width: min(100%, 33dvh, 300px);
+  }
+
+  .selected-callout-summary span:last-child small,
+  .selected-callout-summary small {
+    display: none;
+  }
+
+  .bucket-step-button {
+    min-width: 40px;
+    font-size: 0.6rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .callout-selected-panel-v2 {
+    grid-template-columns: 38px minmax(0, 1fr) 38px;
+  }
+
+  .bucket-step-button {
+    min-width: 38px;
+    padding: 0 4px;
+  }
+}
+
 @media (min-width: 900px) {
   .callout-chart-svg {
     width: min(100%, 58dvh, 600px);
+  }
+
+  .callout-chart-svg-v2 {
+    width: min(100%, 58dvh, 560px);
   }
 }
