@@ -1,0 +1,26 @@
+.view-tabs.planning-hidden {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.board-tools {
+  grid-template-rows: auto auto auto auto;
+}
+
+.board-tools .tight-row {
+  justify-content: stretch;
+}
+
+.board-tools .tight-row button {
+  flex: 1 1 100%;
+}
+
+.view-tabs button {
+  letter-spacing: 0.06em;
+}
+
+@media (max-width: 380px) {
+  .view-tabs button {
+    font-size: 0.62rem;
+    letter-spacing: 0.04em;
+  }
+}
