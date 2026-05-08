@@ -76,7 +76,7 @@
   .dashboard-frame {
     width: min(100%, 1120px);
     grid-template-columns: minmax(0, 1fr) minmax(290px, 360px);
-    grid-template-rows: auto auto minmax(0, 1fr) minmax(0, 128px);
+    grid-template-rows: auto auto auto minmax(0, 1fr);
     grid-template-areas:
       "hero hero"
       "stats stats"
@@ -120,6 +120,14 @@
 
   .workbench {
     grid-area: workbench;
+    align-self: start;
+    min-height: 0;
+    max-height: none;
+  }
+
+  .workbench-grid {
+    align-content: start;
+    overflow: hidden;
   }
 
   .pizza-chart-svg {
