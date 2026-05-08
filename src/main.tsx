@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import App from './AppSliceBoardMultiPie'
+import App from './AppSliceBoardMobileCleanup'
 import './index.css'
 import './slice-board-overrides.css'
 import './slice-board-callouts.css'
