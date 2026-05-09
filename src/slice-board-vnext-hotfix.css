@@ -1,0 +1,302 @@
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body {
+  position: fixed;
+  inset: 0;
+}
+
+.vnext-shell {
+  position: fixed;
+  inset: 0;
+  box-sizing: border-box;
+  height: 100svh;
+  max-height: 100svh;
+  overflow: hidden;
+  padding: max(6px, env(safe-area-inset-top)) 8px max(6px, env(safe-area-inset-bottom));
+}
+
+.vnext-frame {
+  height: 100%;
+  max-height: 100%;
+  grid-template-rows: auto auto minmax(0, 1fr) auto minmax(82px, 13svh) minmax(38px, auto);
+  gap: 5px;
+  overflow: hidden;
+}
+
+.vnext-hero {
+  min-height: 54px;
+  padding: 6px 8px;
+  border-radius: 18px;
+}
+
+.vnext-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+}
+
+.vnext-hero h1 {
+  font-size: clamp(1.48rem, 4.6svh, 1.9rem);
+}
+
+.vnext-hero p:not(.vnext-eyebrow) {
+  display: none;
+}
+
+.vnext-gear {
+  width: 40px;
+  height: 40px;
+}
+
+.vnext-stats {
+  gap: 5px;
+}
+
+.vnext-stat-card {
+  border-radius: 14px;
+  padding: 7px 8px;
+}
+
+.vnext-stat-card strong {
+  margin-top: 4px;
+}
+
+.vnext-chart-card {
+  border-radius: 19px;
+  padding: 7px 7px 5px;
+}
+
+.vnext-chart-heading h2 {
+  font-size: clamp(1rem, 2.45svh, 1.14rem);
+}
+
+.vnext-chart-heading > span {
+  min-width: 50px;
+  min-height: 30px;
+}
+
+.vnext-pizza-svg {
+  width: min(100%, 51svh, 432px);
+  max-height: 100%;
+}
+
+.vnext-swipe-hint {
+  font-size: 0.55rem;
+}
+
+.vnext-selected-strip {
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  gap: 5px;
+  min-height: 48px;
+  padding: 5px;
+  border-radius: 15px;
+}
+
+.vnext-selected-strip > button {
+  border-radius: 12px;
+  font-size: 0.58rem;
+}
+
+.vnext-selected-main {
+  min-height: 38px;
+  padding: 6px 8px;
+  border-radius: 12px;
+}
+
+.vnext-selected-main strong {
+  font-size: 0.82rem;
+}
+
+.vnext-selected-main small {
+  font-size: 0.52rem;
+}
+
+.vnext-workbench {
+  border-radius: 18px;
+  padding: 7px;
+}
+
+.vnext-pie-tools,
+.vnext-edit-tools {
+  gap: 6px;
+}
+
+.vnext-segmented {
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+}
+
+.vnext-segmented button,
+.vnext-amount-row button,
+.vnext-two-actions button,
+.vnext-add-bucket-row,
+.vnext-shell input,
+.vnext-shell select {
+  min-height: 36px;
+}
+
+.vnext-amount-row {
+  grid-template-columns: minmax(0, 1fr) minmax(88px, auto);
+  gap: 6px;
+}
+
+.vnext-bottom-nav {
+  min-height: 38px;
+  padding: 4px;
+  border-radius: 15px;
+}
+
+.vnext-bottom-nav button {
+  min-height: 30px;
+  border-radius: 12px;
+  font-size: 0.66rem;
+}
+
+.vnext-edit-tools {
+  overflow: auto;
+  padding-bottom: 2px;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.vnext-edit-tools::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.vnext-add-sheet {
+  max-height: min(68svh, 540px);
+}
+
+.vnext-topping-picker > div {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.vnext-topping-picker button {
+  min-height: 76px;
+  padding: 7px 5px;
+}
+
+.vnext-topping-picker button strong {
+  display: block;
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(255, 214, 153, 0.24);
+  border-radius: 15px;
+  color: transparent;
+  background-color: #17110d;
+  background-position: center;
+  background-size: 210%;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.26), 0 8px 16px rgba(0, 0, 0, 0.22);
+  font-size: 0;
+  overflow: hidden;
+}
+
+.vnext-topping-picker button:nth-child(1) strong {
+  background-image: url("./img/pizza/pizza-pepperoni.png");
+}
+
+.vnext-topping-picker button:nth-child(2) strong {
+  background-image: url("./img/pizza/pizza-mushroom.png");
+}
+
+.vnext-topping-picker button:nth-child(3) strong {
+  background-image: url("./img/pizza/pizza-olive.png");
+}
+
+.vnext-topping-picker button:nth-child(4) strong {
+  background-image: url("./img/pizza/pizza-basil.png");
+}
+
+.vnext-topping-picker button:nth-child(5) strong {
+  background-image: url("./img/pizza/pizza-pepper.png");
+}
+
+.vnext-topping-picker button:nth-child(6) strong {
+  background-image: url("./img/pizza/pizza-onion.png");
+}
+
+.vnext-topping-picker button.active strong {
+  border-color: rgba(241, 178, 79, 0.86);
+  box-shadow: 0 0 0 2px rgba(241, 178, 79, 0.22), 0 10px 24px rgba(216, 132, 37, 0.23);
+}
+
+.vnext-topping-picker small {
+  font-size: 0.57rem;
+}
+
+@media (max-height: 760px) {
+  .vnext-shell {
+    padding-top: max(5px, env(safe-area-inset-top));
+    padding-bottom: max(5px, env(safe-area-inset-bottom));
+  }
+
+  .vnext-frame {
+    grid-template-rows: auto auto minmax(0, 1fr) auto minmax(78px, 12svh) minmax(36px, auto);
+    gap: 5px;
+  }
+
+  .vnext-hero {
+    min-height: 50px;
+    padding: 5px 7px;
+  }
+
+  .vnext-logo {
+    width: 40px;
+    height: 40px;
+  }
+
+  .vnext-hero h1 {
+    font-size: 1.48rem;
+  }
+
+  .vnext-stats {
+    display: grid;
+  }
+
+  .vnext-stat-card {
+    padding: 6px 7px;
+  }
+
+  .vnext-pizza-svg {
+    width: min(100%, 50svh, 420px);
+  }
+
+  .vnext-selected-strip {
+    min-height: 46px;
+  }
+}
+
+@media (max-height: 690px) {
+  .vnext-stats {
+    display: none;
+  }
+
+  .vnext-frame {
+    grid-template-rows: auto minmax(0, 1fr) auto minmax(76px, 15svh) minmax(36px, auto);
+  }
+
+  .vnext-pizza-svg {
+    width: min(100%, 51svh, 420px);
+  }
+}
+
+@media (max-width: 380px) {
+  .vnext-selected-strip {
+    grid-template-columns: 40px minmax(0, 1fr) 40px;
+  }
+
+  .vnext-topping-picker button strong {
+    width: 42px;
+    height: 42px;
+  }
+}
