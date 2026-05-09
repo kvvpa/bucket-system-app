@@ -14,7 +14,7 @@
   height: 100%;
   margin: 0 auto;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto minmax(116px, 22dvh) auto;
+  grid-template-rows: auto auto minmax(330px, 1fr) auto minmax(92px, 16dvh) auto;
   gap: 7px;
   overflow: hidden;
 }
@@ -141,7 +141,7 @@
   gap: 3px;
   min-height: 0;
   border-radius: 22px;
-  padding: 9px 9px 7px;
+  padding: 8px 8px 6px;
   overflow: hidden;
   touch-action: pan-y;
 }
@@ -188,7 +188,7 @@
 
 .vnext-pizza-svg {
   display: block;
-  width: min(100%, 41dvh, 370px);
+  width: min(100%, 49dvh, 430px);
   height: auto;
   max-height: 100%;
   overflow: visible;
@@ -387,7 +387,21 @@
   gap: 7px;
   height: 100%;
   min-height: 0;
+}
+
+.vnext-pie-tools {
   overflow: hidden;
+}
+
+.vnext-edit-tools {
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.vnext-edit-tools::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .vnext-segmented {
@@ -489,16 +503,16 @@
 
 .vnext-edit-card {
   display: grid;
-  gap: 6px;
+  gap: 7px;
   min-height: 0;
-  border: 1px solid rgba(255, 214, 153, 0.09);
+  border: 1px solid rgba(255, 214, 153, 0.16);
   border-radius: 16px;
-  padding: 7px;
-  background: rgba(0, 0, 0, 0.13);
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.16);
 }
 
 .vnext-edit-card .vnext-eyebrow {
-  color: #a99172;
+  color: #e7a84b;
 }
 
 .vnext-add-bucket-row {
@@ -747,7 +761,7 @@
 
 @media (max-height: 760px) {
   .vnext-frame {
-    grid-template-rows: auto auto minmax(0, 1fr) auto minmax(104px, 20dvh) auto;
+    grid-template-rows: auto auto minmax(320px, 1fr) auto minmax(88px, 15dvh) auto;
     gap: 6px;
   }
 
@@ -772,12 +786,12 @@
   }
 
   .vnext-pizza-svg {
-    width: min(100%, 38dvh, 345px);
+    width: min(100%, 47dvh, 410px);
   }
 
   .vnext-chart-card,
   .vnext-workbench {
-    padding: 8px;
+    padding: 7px;
     border-radius: 19px;
   }
 
@@ -802,11 +816,11 @@
   }
 
   .vnext-frame {
-    grid-template-rows: auto minmax(0, 1fr) auto minmax(96px, 21dvh) auto;
+    grid-template-rows: auto minmax(320px, 1fr) auto minmax(84px, 19dvh) auto;
   }
 
   .vnext-pizza-svg {
-    width: min(100%, 35dvh, 318px);
+    width: min(100%, 46dvh, 398px);
   }
 
   .vnext-swipe-hint,
